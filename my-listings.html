@@ -42,7 +42,7 @@
 
       <!-- ISBN field — always enabled, gates the rest -->
       <div class="form-group">
-        <label class="form-label">Codice ISBN</label>
+        <label class="form-label">ISBN Code</label>
         <input class="form-input" type="text" id="sellIsbn"
                placeholder="e.g. 9788800000003" maxlength="13"
                inputmode="numeric" autocomplete="off" oninput="onIsbnInput()">
@@ -224,7 +224,14 @@ function handlePost() {
 
 function renderSellerListings() {
   const container = document.getElementById('sellerListings');
-  const listings = DB.getListings().filter(l => l.sellerId === currentUser.id);
+  const listings = DB.getListings()
+    .filter(l => l.sellerId === currentUser.id)
+    // Boosted first (pinned), then newest first within each group
+    .sort((a, b) => {
+      const ba = a.boosted ? 1 : 0, bb = b.boosted ? 1 : 0;
+      if (ba !== bb) return bb - ba;
+      return b.createdAt - a.createdAt;
+    });
 
   if (listings.length === 0) {
     container.innerHTML = `
@@ -237,25 +244,40 @@ function renderSellerListings() {
   }
 
   container.innerHTML = listings.map(l => `
-    <div class="txn-card animate-in">
+    <div class="txn-card animate-in ${l.boosted ? 'boosted' : ''}">
       <div class="txn-header">
         <div>
           <div class="txn-title">${escHtml(l.bookTitle)}</div>
           <div class="txn-id">${l.isbn}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+          ${l.boosted ? `<span class="boost-badge"><span class="rocket">🚀</span> Boosted</span>` : ''}
           ${conditionBadge(l.condition)}
           ${l.status === 'active' ? '<span class="badge badge-success">Active</span>' : l.status === 'reserved' ? '<span class="badge badge-warning">Reserved</span>' : '<span class="badge badge-muted">Sold</span>'}
         </div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div style="font-family:var(--font-display);font-size:1.2rem;color:var(--accent);font-weight:700;">${formatPrice(l.price)}</div>
-        <div style="font-size:.8rem;color:var(--ink-3);">Posted ${formatDate(l.createdAt)}</div>
+        <div style="text-align:right;">
+          <div style="font-size:.8rem;color:var(--ink-3);">Posted ${formatDate(l.createdAt)}</div>
+          ${l.status === 'active'
+            ? `<button class="boost-btn ${l.boosted ? 'boosted' : ''}" onclick="toggleBoost('${l.id}')">
+                 🚀 ${l.boosted ? 'Boosted ✓' : 'Boost'}
+               </button>`
+            : ''}
+        </div>
       </div>
       ${l.description ? `<div class="text-muted text-sm" style="margin-top:8px;">${escHtml(l.description)}</div>` : ''}
       ${l.status === 'active' ? `<div style="margin-top:12px;"><button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteListing('${l.id}')">Remove listing</button></div>` : ''}
     </div>
   `).join('');
+}
+
+function toggleBoost(id) {
+  const updated = DB.toggleBoost(id);
+  if (!updated) return;
+  toast(updated.boosted ? 'Listing boosted! 🚀' : 'Boost removed', updated.boosted ? 'success' : 'info');
+  renderSellerListings();
 }
 
 function deleteListing(id) {

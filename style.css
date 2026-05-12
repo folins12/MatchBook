@@ -212,6 +212,83 @@ p { color: var(--ink-2); }
 .listing-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
 .listing-card.same-school { border-left: 3px solid var(--accent); }
 .listing-card.same-city { border-left: 3px solid var(--blue); }
+
+/* ─── BOOST ─────────────────────────────────────────────────────────────────── */
+/* Animated "Boosted" badge — eye-catching gradient pill with a wiggling rocket
+   and twinkling sparkles. Used on both Browse cards and My Listings cards. */
+.boost-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, #FFC061 0%, #C9623F 100%);
+  color: #fff;
+  font-size: .65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(201, 98, 63, .35);
+  animation: boost-glow 2.4s ease-in-out infinite;
+  white-space: nowrap;
+}
+.boost-badge .rocket { display: inline-block; animation: rocket-wiggle 1.8s ease-in-out infinite; transform-origin: 60% 60%; }
+.boost-badge::before, .boost-badge::after {
+  content: '✦'; position: absolute; color: #FFD891; font-size: .55rem;
+  pointer-events: none; animation: sparkle-twinkle 2s ease-in-out infinite;
+}
+.boost-badge::before { top: -5px; right: 14%; animation-delay: 0s; }
+.boost-badge::after  { bottom: -4px; left: 18%; animation-delay: 1s; }
+@keyframes boost-glow {
+  0%, 100% { box-shadow: 0 2px 6px rgba(201, 98, 63, .35); }
+  50%      { box-shadow: 0 2px 14px rgba(255, 192, 97, .7), 0 0 0 4px rgba(255, 192, 97, .15); }
+}
+@keyframes rocket-wiggle {
+  0%, 100% { transform: rotate(-15deg) translateY(0); }
+  50%      { transform: rotate(-25deg) translateY(-2px); }
+}
+@keyframes sparkle-twinkle {
+  0%, 100% { opacity: 0; transform: scale(.5); }
+  50%      { opacity: 1; transform: scale(1.1); }
+}
+
+/* Highlighted card frame for boosted listings (works for both Browse and My Listings) */
+.listing-card.boosted,
+.txn-card.boosted {
+  position: relative;
+  border: 1.5px solid #FFC061;
+  box-shadow: 0 0 0 3px rgba(255, 192, 97, .14), var(--shadow);
+}
+.listing-card.boosted::before,
+.txn-card.boosted::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(255, 192, 97, .08) 0%, transparent 35%);
+  pointer-events: none; border-radius: inherit;
+}
+.listing-card .boost-badge-wrap {
+  position: absolute; top: 10px; left: 10px; z-index: 4;
+}
+
+/* Boost button (toggle) on the seller's own listings */
+.boost-btn {
+  font-size: .75rem; font-weight: 600;
+  padding: 4px 12px; border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--ink-2);
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 6px;
+  transition: var(--transition);
+}
+.boost-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+.boost-btn.boosted {
+  background: linear-gradient(135deg, #FFC061 0%, #C9623F 100%);
+  color: #fff; border-color: transparent;
+  box-shadow: 0 2px 8px rgba(201, 98, 63, .35);
+}
+.boost-btn.boosted:hover { opacity: .9; transform: translateY(-1px); }
+
 .listing-card-cover {
   background: var(--bg-alt);
   height: 120px;

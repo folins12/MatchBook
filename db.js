@@ -3,6 +3,16 @@
 
 'use strict';
 
+// ─── PLATFORM CONSTANTS ──────────────────────────────────────────────────────
+
+// Flat fee added on top of the book price for every purchase.
+// Used in the listing detail modal and in transaction creation.
+const BUYER_FEE = 1.00;
+
+// Share of the book price the buyer pays online upfront (escrow deposit).
+// The complement (1 - DEPOSIT_RATE) is paid in cash in person.
+const DEPOSIT_RATE = 0.3;
+
 // ─── SCHOOLS DATABASE ────────────────────────────────────────────────────────
 
 const SCHOOLS_DB = [
@@ -70,9 +80,8 @@ const SCHOOLS_DB = [
 
 // ─── BOOKS DATABASE ──────────────────────────────────────────────────────────
 
-// `cost` = prezzo di listino di copertina in EUR (nuovo). Usato per calcolare
-// il prezzo massimo di rivendita (50% del listino) quando un venditore
-// inserisce un libro tramite ISBN.
+// `cost` = cover list price in EUR (new). Used to calculate the maximum
+// resale price (50% of list) when a seller creates a listing via ISBN.
 const BOOKS_DB = [
   { isbn: '9788800000001', title: 'Divina Commedia — Commento', author: 'Dante Alighieri (ed. Sapegno)', subject: 'Italian Literature', year: 1, cost: 32.00 },
   { isbn: '9788800000002', title: 'Promessi Sposi', author: 'Alessandro Manzoni', subject: 'Italian Literature', year: 2, cost: 26.50 },
@@ -167,11 +176,20 @@ const DB = {
       price: parseFloat(data.price),
       description: data.description || '',
       status: 'active', // 'active'|'reserved'|'sold'
+      boosted: false, // priority boost — pins to the top in Browse and My Listings
       createdAt: Date.now(),
     };
     listings.push(listing);
     this.saveListings(listings);
     return listing;
+  },
+  toggleBoost(id) {
+    const listings = this.getListings();
+    const idx = listings.findIndex(l => l.id === id);
+    if (idx === -1) return null;
+    listings[idx].boosted = !listings[idx].boosted;
+    this.saveListings(listings);
+    return listings[idx];
   },
   updateListing(id, updates) {
     const listings = this.getListings();
@@ -271,7 +289,11 @@ const DB = {
     const txn = {
       id: 'txn_' + Date.now() + Math.random().toString(36).slice(2, 7),
       buyerId, sellerId, listingId,
-      totalPrice: listing.price,
+      bookPrice: listing.price,
+      buyerFee: BUYER_FEE,
+      // totalPrice = book price + buyer fee (this is the buyer's full out-of-pocket).
+      // The 30/70 split still applies to the book price only — the fee goes to the platform.
+      totalPrice: parseFloat((listing.price + BUYER_FEE).toFixed(2)),
       deposit, remainder,
       sellerPenalty: deposit, // 30% of price
       status: 'pending_deposit', // pending_deposit → deposit_paid → completed | disputed | refunded
@@ -292,8 +314,11 @@ const DB = {
     const txn = txns[idx];
     if (txn.status !== 'pending_deposit') return { error: 'Invalid state' };
     const buyer = this.getUserById(txn.buyerId);
-    if (!buyer || buyer.balance < txn.deposit) return { error: 'Insufficient balance' };
-    this.updateUser(txn.buyerId, { balance: buyer.balance - txn.deposit });
+    // Upfront online payment = deposit + buyer fee (the platform fee).
+    const fee = txn.buyerFee || 0;
+    const upfront = parseFloat((txn.deposit + fee).toFixed(2));
+    if (!buyer || buyer.balance < upfront) return { error: 'Insufficient balance' };
+    this.updateUser(txn.buyerId, { balance: parseFloat((buyer.balance - upfront).toFixed(2)) });
     txns[idx] = { ...txn, status: 'deposit_paid', depositPaidAt: Date.now() };
     this.saveTransactions(txns);
     this.updateListing(txn.listingId, { status: 'reserved' });
@@ -316,9 +341,11 @@ const DB = {
     if (idx === -1) return { error: 'Not found' };
     const txn = txns[idx];
     if (txn.status !== 'deposit_paid') return { error: 'Invalid state' };
-    // Refund buyer fully
+    // Refund buyer fully — both deposit AND the buyer fee, since the seller is at fault
     const buyer = this.getUserById(txn.buyerId);
-    if (buyer) this.updateUser(txn.buyerId, { balance: buyer.balance + txn.deposit });
+    const fee = txn.buyerFee || 0;
+    const refundAmount = parseFloat((txn.deposit + fee).toFixed(2));
+    if (buyer) this.updateUser(txn.buyerId, { balance: parseFloat((buyer.balance + refundAmount).toFixed(2)) });
     // Penalize seller and delete account
     this.deleteUser(txn.sellerId);
     txns[idx] = { ...txn, status: 'refunded', refundedAt: Date.now(), disputedAt: Date.now() };
@@ -343,12 +370,12 @@ const DB = {
     const s2 = this.getUserByEmail('seller2@demo.it');
     // Seed listings
     if (s1) {
-      this.createListing({ sellerId: s1.id, schoolId: 'NA001', isbn: '9788800000003', bookTitle: 'Matematica.blu 2.0 Vol. 1', bookAuthor: 'Bergamini, Trifone, Barozzi', subject: 'Mathematics', condition: 'good', price: 14.00, description: 'Usato poco, nessuna sottolineatura' });
-      this.createListing({ sellerId: s1.id, schoolId: 'NA001', isbn: '9788800000011', bookTitle: 'Grammatica Latina', bookAuthor: 'Traina & Pasqualini', subject: 'Latin', condition: 'like_new', price: 12.50, description: 'Come nuovo, acquistato e mai usato' });
-      this.createListing({ sellerId: s1.id, schoolId: 'NA001', isbn: '9788800000001', bookTitle: 'Divina Commedia — Commento', bookAuthor: 'Dante Alighieri (ed. Sapegno)', subject: 'Italian Literature', condition: 'fair', price: 8.00, description: 'Qualche nota a matita' });
+      this.createListing({ sellerId: s1.id, schoolId: 'NA001', isbn: '9788800000003', bookTitle: 'Matematica.blu 2.0 Vol. 1', bookAuthor: 'Bergamini, Trifone, Barozzi', subject: 'Mathematics', condition: 'good', price: 14.00, description: 'Lightly used, no underlining' });
+      this.createListing({ sellerId: s1.id, schoolId: 'NA001', isbn: '9788800000011', bookTitle: 'Grammatica Latina', bookAuthor: 'Traina & Pasqualini', subject: 'Latin', condition: 'like_new', price: 12.50, description: 'Like new, bought and never used' });
+      this.createListing({ sellerId: s1.id, schoolId: 'NA001', isbn: '9788800000001', bookTitle: 'Divina Commedia — Commento', bookAuthor: 'Dante Alighieri (ed. Sapegno)', subject: 'Italian Literature', condition: 'fair', price: 8.00, description: 'Some pencil notes' });
     }
     if (s2) {
-      this.createListing({ sellerId: s2.id, schoolId: 'NA002', isbn: '9788800000007', bookTitle: 'Biologia — La scienza della vita', bookAuthor: 'Campbell & Reece', subject: 'Biology', condition: 'good', price: 18.00, description: 'Ottime condizioni' });
+      this.createListing({ sellerId: s2.id, schoolId: 'NA002', isbn: '9788800000007', bookTitle: 'Biologia — La scienza della vita', bookAuthor: 'Campbell & Reece', subject: 'Biology', condition: 'good', price: 18.00, description: 'Excellent condition' });
       this.createListing({ sellerId: s2.id, schoolId: 'NA002', isbn: '9788800000009', bookTitle: 'Storia Moderna Vol. 1', bookAuthor: 'Braudel', subject: 'History', condition: 'like_new', price: 14.50 });
     }
     this._set('mb_seeded_v2', true);

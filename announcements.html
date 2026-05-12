@@ -198,6 +198,10 @@ function renderListings() {
   if (maxPrice < Infinity) listings = listings.filter(l => l.price <= maxPrice);
   if (condFilter) listings = listings.filter(l => l.condition === condFilter);
 
+  // Pin boosted listings to the top. Stable sort preserves the existing
+  // school/city priority ordering within each group.
+  listings.sort((a, b) => (b.boosted ? 1 : 0) - (a.boosted ? 1 : 0));
+
   document.getElementById('listingsCount').textContent = `${listings.length} listing${listings.length !== 1 ? 's' : ''} found`;
 
   if (listings.length === 0) {
@@ -220,7 +224,8 @@ function renderListings() {
                    `<span class="priority-label p3">🗺️ ${l._sellerSchool?.city || 'Other'}</span>`;
     const icon = BOOK_ICONS[l.subject] || '📚';
     return `
-      <div class="listing-card ${pClass} animate-in" onclick="openListingDetail('${l.id}')">
+      <div class="listing-card ${pClass} ${l.boosted ? 'boosted' : ''} animate-in" onclick="openListingDetail('${l.id}')">
+        ${l.boosted ? `<div class="boost-badge-wrap"><span class="boost-badge"><span class="rocket">🚀</span> Boosted</span></div>` : ''}
         <div class="listing-card-cover">
           <span>${icon}</span>
           <div class="listing-card-priority">${pLabel}</div>
@@ -244,9 +249,10 @@ function openListingDetail(id) {
   const seller = DB.getUserById(l.sellerId);
   const school = getSchoolById(l.schoolId);
   const BUYER_FEE = 1.00;
-  const deposit = (l.price * 0.30).toFixed(2);
+  const deposit = (l.price * 0.30 + BUYER_FEE).toFixed(2);
   const remainder = (l.price * 0.70).toFixed(2);
   const total = (l.price + BUYER_FEE).toFixed(2);
+
 
   const body = document.getElementById('listingModalBody');
   body.innerHTML = `
@@ -283,6 +289,7 @@ function openListingDetail(id) {
       <div class="price-row"><span>Remainder (70% — paid in person)</span><span>€${remainder}</span></div>
       <div class="price-row"><span>Buyer fee</span><span style="color:var(--accent);">€${BUYER_FEE.toFixed(2)}</span></div>
       <div class="price-row total"><span>Total</span><span>€${total}</span></div>
+
     </div>
     <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
       <button class="btn btn-primary" onclick="initiateTransaction('${l.id}','${l.sellerId}')">🔒 Reserve — Pay €${deposit} deposit</button>

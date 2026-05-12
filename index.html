@@ -25,7 +25,7 @@
       </p>
       <div class="hero-cta">
         <a href="auth.html?tab=register" class="btn btn-primary btn-lg">Get started free</a>
-        <a href="announcements.html" class="btn btn-secondary btn-lg">Browse listings</a>
+        <a href="announcements.html" id="heroBrowseBtn" class="btn btn-secondary btn-lg">Browse listings</a>
       </div>
       <div class="hero-stats">
         <div class="stat">
@@ -128,12 +128,24 @@
     <div style="font-size:.85rem;color:var(--ink-3);">© 2025 MatchBook. For Italian students, by Italian students.</div>
     <div style="display:flex;gap:20px;">
       <a href="auth.html" style="font-size:.85rem;color:var(--ink-3);">Sign in</a>
-      <a href="announcements.html" style="font-size:.85rem;color:var(--ink-3);">Browse</a>
+      <a href="announcements.html" id="footerBrowseLink" style="font-size:.85rem;color:var(--ink-3);">Browse</a>
     </div>
   </div>
 </footer>
 
 <script src="db.js"></script>
 <script src="app.js"></script>
+<script>
+  // If the user isn't logged in, "Browse listings" links should go to the
+  // login page (with a next=announcements.html redirect after sign-in).
+  (function gateBrowseLinks() {
+    if (DB.currentUser()) return; // logged in → leave hrefs as-is
+    const target = 'auth.html?next=' + encodeURIComponent('announcements.html');
+    ['heroBrowseBtn', 'footerBrowseLink'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.href = target;
+    });
+  })();
+</script>
 </body>
 </html>
