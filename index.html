@@ -14,7 +14,7 @@
 <section class="hero">
   <div class="container">
     <div class="hero-content animate-in">
-      <div class="hero-tag">🇮🇹 For Italian High School Students</div>
+      <div class="hero-tag"><span style="display:inline-flex;align-items:center;gap:0;width:14px;height:10px;border-radius:2px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);"><i style="flex:1;background:#0E6E50;height:100%;"></i><i style="flex:1;background:#fff;height:100%;"></i><i style="flex:1;background:#B7332B;height:100%;"></i></span> For Italian High School Students</div>
       <h1 class="hero-title">
         Trade textbooks<br>
         <em>smarter, safer,</em><br>
@@ -86,22 +86,30 @@
     </div>
     <div class="features-grid">
       <div class="feature-card animate-in">
-        <div class="feature-icon">🏫</div>
+        <div class="feature-icon-svg" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M3 21V10l9-6 9 6v11"/><path d="M9 21v-7h6v7"/><path d="M12 4v3"/></svg>
+        </div>
         <div class="feature-title">School-first matching</div>
         <div class="feature-desc">Listings from your school appear at the top. Same city next.</div>
       </div>
       <div class="feature-card animate-in">
-        <div class="feature-icon">🔒</div>
+        <div class="feature-icon-svg" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><circle cx="12" cy="16" r="1.2" fill="currentColor" stroke="none"/></svg>
+        </div>
         <div class="feature-title">Escrow protection</div>
         <div class="feature-desc">You'll pay 30% upfront to reserve a book. The remaining 70% is settled in person. If something goes wrong, you'll get a full refund.</div>
       </div>
       <div class="feature-card animate-in">
-        <div class="feature-icon">💬</div>
+        <div class="feature-icon-svg" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z"/><path d="M8.5 11.5h7M8.5 14.5h4"/></svg>
+        </div>
         <div class="feature-title">Live chat</div>
         <div class="feature-desc">Discuss price, suggest a meeting point, or ask about book condition.</div>
       </div>
       <div class="feature-card animate-in">
-        <div class="feature-icon">⚖️</div>
+        <div class="feature-icon-svg" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 4v17M5 21h14"/><path d="M6 7h12"/><path d="M3 13l3-6 3 6a3 3 0 0 1-6 0z"/><path d="M15 13l3-6 3 6a3 3 0 0 1-6 0z"/></svg>
+        </div>
         <div class="feature-title">Fair accountability</div>
         <div class="feature-desc">If a seller fails to deliver, they pay a 30% penalty and lose their account. Trust is at the core of every transaction.</div>
       </div>
@@ -110,8 +118,8 @@
 </section>
 
 <!-- CTA BANNER -->
-<section style="background: var(--ink); padding: 80px 0; position: relative; overflow: hidden;">
-  <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 70% 50%,rgba(201,98,63,.2),transparent 60%);pointer-events:none;"></div>
+<section style="background: #0B1F19; padding: 80px 0; position: relative; overflow: hidden;">
+  <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 70% 50%,rgba(214,180,105,.18),transparent 60%);pointer-events:none;"></div>
   <div class="container" style="text-align:center; position:relative;">
     <h2 style="color:#fff; font-family:var(--font-display); font-size:clamp(1.8rem,4vw,2.8rem); margin-bottom:16px;">Ready to save on your books?</h2>
     <p style="color:rgba(255,255,255,.6); max-width:420px; margin:0 auto 32px;">Join thousands of Italian students who trade smarter, not harder.</p>
@@ -122,10 +130,8 @@
 <!-- FOOTER -->
 <footer style="background: var(--bg-alt); border-top:1px solid var(--border); padding: 32px 0;">
   <div class="container" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
-    <div style="display:flex;align-items:center;gap:8px;font-family:var(--font-display);font-weight:700;">
-      <span>📚</span> MatchBook
-    </div>
-    <div style="font-size:.85rem;color:var(--ink-3);">© 2025 MatchBook. For Italian students, by Italian students.</div>
+    <img class="mb-logo-img" src="assets/logo.png" alt="MatchBook" style="height:24px;">
+    <div style="font-size:.85rem;color:var(--ink-3);">© 2026 MatchBook. For Italian students, by Italian students.</div>
     <div style="display:flex;gap:20px;">
       <a href="auth.html" style="font-size:.85rem;color:var(--ink-3);">Sign in</a>
       <a href="announcements.html" id="footerBrowseLink" style="font-size:.85rem;color:var(--ink-3);">Browse</a>

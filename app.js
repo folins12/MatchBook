@@ -14,9 +14,8 @@ function buildNav() {
 
   navEl.innerHTML = `
     <div class="nav-inner">
-      <a class="nav-logo" href="index.html">
-        <span class="logo-icon">📚</span>
-        <span class="logo-text">MatchBook</span>
+      <a class="nav-logo" href="index.html" aria-label="MatchBook">
+        <img class="mb-logo-img" src="assets/logo.png" alt="MatchBook">
       </a>
       <div class="nav-links">
         ${session ? `
