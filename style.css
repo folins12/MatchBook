@@ -118,6 +118,9 @@ p { color: var(--ink-2); }
 .nav-role { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px; border-radius: 4px; }
 .nav-role.buyer { background: var(--blue-light); color: var(--blue); }
 .nav-role.seller { background: var(--gold-light); color: var(--gold); }
+.nav-plan { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px; border-radius: 4px; }
+.nav-plan.free { background: var(--blue-light); color: var(--blue); }
+.nav-plan.pro  { background: var(--accent-light); color: var(--accent); }
 .nav-dropdown {
   display: none; position: absolute; top: calc(100% + 8px); right: 0;
   background: var(--bg-card); border: 1px solid var(--border);

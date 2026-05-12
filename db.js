@@ -70,25 +70,28 @@ const SCHOOLS_DB = [
 
 // ─── BOOKS DATABASE ──────────────────────────────────────────────────────────
 
+// `cost` = prezzo di listino di copertina in EUR (nuovo). Usato per calcolare
+// il prezzo massimo di rivendita (50% del listino) quando un venditore
+// inserisce un libro tramite ISBN.
 const BOOKS_DB = [
-  { isbn: '9788800000001', title: 'Divina Commedia — Commento', author: 'Dante Alighieri (ed. Sapegno)', subject: 'Italian Literature', year: 1 },
-  { isbn: '9788800000002', title: 'Promessi Sposi', author: 'Alessandro Manzoni', subject: 'Italian Literature', year: 2 },
-  { isbn: '9788800000003', title: 'Matematica.blu 2.0 Vol. 1', author: 'Bergamini, Trifone, Barozzi', subject: 'Mathematics', year: 1 },
-  { isbn: '9788800000004', title: 'Matematica.blu 2.0 Vol. 2', author: 'Bergamini, Trifone, Barozzi', subject: 'Mathematics', year: 2 },
-  { isbn: '9788800000005', title: 'Matematica.blu 2.0 Vol. 3', author: 'Bergamini, Trifone, Barozzi', subject: 'Mathematics', year: 3 },
-  { isbn: '9788800000006', title: 'Fisica: concetti e fenomeni Vol. 1', author: 'Cutnell & Johnson', subject: 'Physics', year: 3 },
-  { isbn: '9788800000007', title: 'Biologia — La scienza della vita', author: 'Campbell & Reece', subject: 'Biology', year: 2 },
-  { isbn: '9788800000008', title: 'Chimica: molecole in movimento', author: 'Tro', subject: 'Chemistry', year: 2 },
-  { isbn: '9788800000009', title: 'Storia Moderna Vol. 1', author: 'Braudel', subject: 'History', year: 3 },
-  { isbn: '9788800000010', title: 'Storia Contemporanea Vol. 2', author: 'De Bernardi, Guarracino', subject: 'History', year: 4 },
-  { isbn: '9788800000011', title: 'Grammatica Latina', author: 'Traina & Pasqualini', subject: 'Latin', year: 1 },
-  { isbn: '9788800000012', title: 'Versioni Latine — Anthologia', author: 'Nuzzo', subject: 'Latin', year: 2 },
-  { isbn: '9788800000013', title: 'New Headway Upper-Intermediate', author: 'Soars', subject: 'English', year: 3 },
-  { isbn: '9788800000014', title: 'Filosofia Vol. 1 — Antica e Medievale', author: 'Abbagnano, Fornero', subject: 'Philosophy', year: 3 },
-  { isbn: '9788800000015', title: 'Filosofia Vol. 2 — Moderna', author: 'Abbagnano, Fornero', subject: 'Philosophy', year: 4 },
-  { isbn: '9788800000016', title: 'Arte e storia Vol. 1', author: 'Cricco, Di Teodoro', subject: 'Art History', year: 1 },
-  { isbn: '9788800000017', title: 'Economia Aziendale Vol. 1', author: 'Astolfi, Barale', subject: 'Economics', year: 1 },
-  { isbn: '9788800000018', title: 'Informatica — App e algoritmi', author: 'Lorenzi, Cavalli', subject: 'Computer Science', year: 2 },
+  { isbn: '9788800000001', title: 'Divina Commedia — Commento', author: 'Dante Alighieri (ed. Sapegno)', subject: 'Italian Literature', year: 1, cost: 32.00 },
+  { isbn: '9788800000002', title: 'Promessi Sposi', author: 'Alessandro Manzoni', subject: 'Italian Literature', year: 2, cost: 26.50 },
+  { isbn: '9788800000003', title: 'Matematica.blu 2.0 Vol. 1', author: 'Bergamini, Trifone, Barozzi', subject: 'Mathematics', year: 1, cost: 38.50 },
+  { isbn: '9788800000004', title: 'Matematica.blu 2.0 Vol. 2', author: 'Bergamini, Trifone, Barozzi', subject: 'Mathematics', year: 2, cost: 40.80 },
+  { isbn: '9788800000005', title: 'Matematica.blu 2.0 Vol. 3', author: 'Bergamini, Trifone, Barozzi', subject: 'Mathematics', year: 3, cost: 42.60 },
+  { isbn: '9788800000006', title: 'Fisica: concetti e fenomeni Vol. 1', author: 'Cutnell & Johnson', subject: 'Physics', year: 3, cost: 34.20 },
+  { isbn: '9788800000007', title: 'Biologia — La scienza della vita', author: 'Campbell & Reece', subject: 'Biology', year: 2, cost: 41.00 },
+  { isbn: '9788800000008', title: 'Chimica: molecole in movimento', author: 'Tro', subject: 'Chemistry', year: 2, cost: 36.50 },
+  { isbn: '9788800000009', title: 'Storia Moderna Vol. 1', author: 'Braudel', subject: 'History', year: 3, cost: 29.80 },
+  { isbn: '9788800000010', title: 'Storia Contemporanea Vol. 2', author: 'De Bernardi, Guarracino', subject: 'History', year: 4, cost: 31.50 },
+  { isbn: '9788800000011', title: 'Grammatica Latina', author: 'Traina & Pasqualini', subject: 'Latin', year: 1, cost: 28.90 },
+  { isbn: '9788800000012', title: 'Versioni Latine — Anthologia', author: 'Nuzzo', subject: 'Latin', year: 2, cost: 24.50 },
+  { isbn: '9788800000013', title: 'New Headway Upper-Intermediate', author: 'Soars', subject: 'English', year: 3, cost: 32.00 },
+  { isbn: '9788800000014', title: 'Filosofia Vol. 1 — Antica e Medievale', author: 'Abbagnano, Fornero', subject: 'Philosophy', year: 3, cost: 33.50 },
+  { isbn: '9788800000015', title: 'Filosofia Vol. 2 — Moderna', author: 'Abbagnano, Fornero', subject: 'Philosophy', year: 4, cost: 34.80 },
+  { isbn: '9788800000016', title: 'Arte e storia Vol. 1', author: 'Cricco, Di Teodoro', subject: 'Art History', year: 1, cost: 36.20 },
+  { isbn: '9788800000017', title: 'Economia Aziendale Vol. 1', author: 'Astolfi, Barale', subject: 'Economics', year: 1, cost: 29.50 },
+  { isbn: '9788800000018', title: 'Informatica — App e algoritmi', author: 'Lorenzi, Cavalli', subject: 'Computer Science', year: 2, cost: 27.80 },
 ];
 
 // ─── LOCAL STORAGE HELPERS ───────────────────────────────────────────────────
@@ -113,9 +116,9 @@ const DB = {
       email: data.email.toLowerCase(),
       password: data.password, // plain text for demo
       name: data.name,
-      role: data.role, // 'buyer' | 'seller'
+      plan: data.plan || 'free', // 'free' | 'pro' — cosmetic for now, no functional difference
       schoolId: data.schoolId,
-      balance: data.role === 'buyer' ? 200 : 0, // mock balance
+      balance: 200, // mock balance — every account can buy
       penaltyCount: 0,
       createdAt: Date.now(),
       active: true,
@@ -139,7 +142,7 @@ const DB = {
 
   // ── Session ────────────────────────────────────────────────────────────────
   getSession() { return this._get('mb_session', null); },
-  setSession(user) { this._set('mb_session', { userId: user.id, role: user.role, name: user.name }); },
+  setSession(user) { this._set('mb_session', { userId: user.id, name: user.name }); },
   clearSession() { localStorage.removeItem('mb_session'); },
   currentUser() {
     const s = this.getSession();
@@ -326,11 +329,16 @@ const DB = {
 
   // ── Seed ───────────────────────────────────────────────────────────────────
   seed() {
-    if (this._get('mb_seeded')) return;
-    // Seed demo users
-    this.createUser({ email: 'buyer@demo.it', password: 'demo1234', name: 'Giulia Ferraro', role: 'buyer', schoolId: 'NA001' });
-    this.createUser({ email: 'seller@demo.it', password: 'demo1234', name: 'Marco Esposito', role: 'seller', schoolId: 'NA001' });
-    this.createUser({ email: 'seller2@demo.it', password: 'demo1234', name: 'Sofia Romano', role: 'seller', schoolId: 'NA002' });
+    if (this._get('mb_seeded_v2')) return;
+    // Wipe any data from the previous schema (role-based) so we start clean
+    if (this._get('mb_seeded')) {
+      ['mb_users','mb_listings','mb_conversations','mb_transactions','mb_session','mb_seeded']
+        .forEach(k => localStorage.removeItem(k));
+    }
+    // Seed demo users — buyer@demo.it is now the "free" plan, seller@demo.it the "pro" plan
+    this.createUser({ email: 'buyer@demo.it',  password: 'demo1234', name: 'Giulia Ferraro',  plan: 'free', schoolId: 'NA001' });
+    this.createUser({ email: 'seller@demo.it', password: 'demo1234', name: 'Marco Esposito',  plan: 'pro',  schoolId: 'NA001' });
+    this.createUser({ email: 'seller2@demo.it',password: 'demo1234', name: 'Sofia Romano',    plan: 'pro',  schoolId: 'NA002' });
     const s1 = this.getUserByEmail('seller@demo.it');
     const s2 = this.getUserByEmail('seller2@demo.it');
     // Seed listings
@@ -341,9 +349,9 @@ const DB = {
     }
     if (s2) {
       this.createListing({ sellerId: s2.id, schoolId: 'NA002', isbn: '9788800000007', bookTitle: 'Biologia — La scienza della vita', bookAuthor: 'Campbell & Reece', subject: 'Biology', condition: 'good', price: 18.00, description: 'Ottime condizioni' });
-      this.createListing({ sellerId: s2.id, schoolId: 'NA002', isbn: '9788800000009', bookTitle: 'Storia Moderna Vol. 1', bookAuthor: 'Braudel', subject: 'History', condition: 'like_new', price: 16.00 });
+      this.createListing({ sellerId: s2.id, schoolId: 'NA002', isbn: '9788800000009', bookTitle: 'Storia Moderna Vol. 1', bookAuthor: 'Braudel', subject: 'History', condition: 'like_new', price: 14.50 });
     }
-    this._set('mb_seeded', true);
+    this._set('mb_seeded_v2', true);
   },
 };
 

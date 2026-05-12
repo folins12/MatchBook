@@ -21,6 +21,7 @@ function buildNav() {
       <div class="nav-links">
         ${session ? `
           <a href="announcements.html" class="nav-link ${isPage('announcements') ? 'active' : ''}">Browse</a>
+          <a href="my-listings.html" class="nav-link ${isPage('my-listings') ? 'active' : ''}">Your Listings</a>
           <a href="chat.html" class="nav-link ${isPage('chat') ? 'active' : ''}">Messages</a>
           <a href="transactions.html" class="nav-link ${isPage('transactions') ? 'active' : ''}">Transactions</a>
         ` : ''}
@@ -31,7 +32,7 @@ function buildNav() {
             <div class="nav-avatar">${user.name[0].toUpperCase()}</div>
             <div class="nav-user-info">
               <span class="nav-username">${user.name.split(' ')[0]}</span>
-              <span class="nav-role ${user.role}">${user.role}</span>
+              <span class="nav-plan ${user.plan || 'free'}">${(user.plan || 'free').toUpperCase()}</span>
             </div>
             <div class="nav-dropdown" id="navDropdown">
               <div class="dropdown-school">${school ? school.name : ''}</div>
@@ -68,15 +69,10 @@ function logout() {
 
 // ─── AUTH GUARDS ─────────────────────────────────────────────────────────────
 
-function requireAuth(role = null) {
+function requireAuth() {
   const user = DB.currentUser();
   if (!user || !user.active) {
     location.href = 'auth.html?next=' + encodeURIComponent(location.pathname);
-    return null;
-  }
-  if (role && user.role !== role) {
-    toast(`This page is for ${role}s only`, 'error');
-    setTimeout(() => location.href = 'index.html', 1200);
     return null;
   }
   return user;

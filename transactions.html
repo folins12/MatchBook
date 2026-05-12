@@ -99,17 +99,12 @@ document.addEventListener('DOMContentLoaded', () => {
   currentUser = DB.currentUser();
   if (!currentUser) { location.href = 'auth.html?next=transactions.html'; return; }
 
-  // Balance card for buyers
-  if (currentUser.role === 'buyer') {
-    const card = document.getElementById('balanceCard');
-    card.style.display = 'block';
-    refreshBalance();
-  }
+  // Balance card visible to everyone — every account can buy
+  document.getElementById('balanceCard').style.display = 'block';
+  refreshBalance();
 
   document.getElementById('txnSubtitle').textContent =
-    currentUser.role === 'buyer'
-      ? 'Track your purchases, pay deposits, and confirm successful trades.'
-      : 'View your sales and track incoming payments.';
+    'Track your purchases and sales, pay deposits, and confirm successful trades.';
 
   renderTransactions();
 });
@@ -140,15 +135,9 @@ function renderTransactions() {
     emptyState.style.display = 'block';
     const text = document.getElementById('emptyStateText');
     const cta = document.getElementById('emptyStateCta');
-    if (currentUser.role === 'buyer') {
-      text.textContent = 'Browse listings and reserve a book to get started.';
-      cta.textContent = 'Browse listings';
-      cta.href = 'announcements.html';
-    } else {
-      text.textContent = 'Post listings to start receiving orders.';
-      cta.textContent = 'Post a listing';
-      cta.href = 'announcements.html';
-    }
+    text.textContent = 'Browse listings to reserve a book, or post your own to start receiving orders.';
+    cta.textContent = 'Browse listings';
+    cta.href = 'announcements.html';
     return;
   }
 
@@ -158,7 +147,9 @@ function renderTransactions() {
 
 function renderTxnCard(t) {
   const listing = DB.getListingById(t.listingId);
-  const otherUser = DB.getUserById(currentUser.role === 'buyer' ? t.sellerId : t.buyerId);
+  // Per-transaction: am I the buyer or the seller in THIS specific deal?
+  const iAmBuyer = currentUser.id === t.buyerId;
+  const otherUser = DB.getUserById(iAmBuyer ? t.sellerId : t.buyerId);
 
   const escrowSteps = [
     { key: 'pending_deposit', icon: '📋', label: 'Created' },
@@ -188,7 +179,7 @@ function renderTxnCard(t) {
         <div>
           <div class="txn-title">${escHtml(listing?.bookTitle || 'Unknown book')}</div>
           <div class="txn-id">ID: ${t.id}</div>
-          <div style="font-size:.8rem;color:var(--ink-3);margin-top:2px;">${currentUser.role === 'buyer' ? '📦 Seller' : '🛒 Buyer'}: ${escHtml(otherUser?.name || 'Unknown')}</div>
+          <div style="font-size:.8rem;color:var(--ink-3);margin-top:2px;">${iAmBuyer ? '📦 Seller' : '🛒 Buyer'}: ${escHtml(otherUser?.name || 'Unknown')}</div>
         </div>
         <div>${statusBadge(t.status)}</div>
       </div>
@@ -230,7 +221,8 @@ function renderTxnCard(t) {
 }
 
 function renderActions(t) {
-  if (currentUser.role === 'buyer') {
+  const iAmBuyer = currentUser.id === t.buyerId;
+  if (iAmBuyer) {
     if (t.status === 'pending_deposit') {
       return `<button class="btn btn-primary" onclick="openDepositModal('${t.id}')">💳 Pay ${formatPrice(t.deposit)} Deposit</button>
               <button class="btn btn-ghost btn-sm" onclick="cancelTxn('${t.id}')" style="color:var(--red);">Cancel</button>`;
@@ -244,7 +236,7 @@ function renderActions(t) {
         <button class="btn btn-danger" onclick="openDisputeModal('${t.id}')">⚠️ Report issue</button>`;
     }
   } else {
-    // Seller view
+    // Seller side of this transaction
     if (t.status === 'deposit_paid') {
       return `<div style="background:var(--blue-light);border:1px solid var(--blue);border-radius:var(--radius-sm);padding:12px 14px;font-size:.85rem;color:var(--blue);width:100%;">
         📬 Deposit received! Arrange the meetup with the buyer via <a href="chat.html" style="font-weight:600;">Messages</a>. They'll confirm on their end after the handover.

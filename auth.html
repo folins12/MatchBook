@@ -63,61 +63,37 @@
         <div id="loginError" class="form-error" style="margin-bottom:12px;"></div>
         <button class="btn btn-primary btn-full" onclick="handleLogin()">Sign in</button>
         <div style="margin-top:16px;text-align:center;font-size:.85rem;color:var(--ink-3);">
-          Demo buyer: <code>buyer@demo.it</code> / <code>demo1234</code><br>
-          Demo seller: <code>seller@demo.it</code> / <code>demo1234</code>
+          Free demo: <code>buyer@demo.it</code> / <code>demo1234</code><br>
+          Pro demo: <code>seller@demo.it</code> / <code>demo1234</code>
         </div>
       </div>
 
       <!-- REGISTER PANEL -->
       <div class="auth-panel" id="panelRegister">
-        <!-- Step 1: Role selection -->
-        <div id="stepRole">
-          <p style="font-size:.9rem;color:var(--ink-3);margin-bottom:20px;">
-            Choose your role carefully — it cannot be changed later. Buyers browse and purchase; Sellers list and sell.
-          </p>
-          <div class="role-selector">
-            <div class="role-card" id="roleBuyer" onclick="selectRole('buyer')">
-              <div class="role-card-icon">🛒</div>
-              <div class="role-card-title">Buyer</div>
-              <div class="role-card-desc">I want to find and buy used textbooks at a good price.</div>
-            </div>
-            <div class="role-card" id="roleSeller" onclick="selectRole('seller')">
-              <div class="role-card-icon">📦</div>
-              <div class="role-card-title">Seller</div>
-              <div class="role-card-desc">I want to sell textbooks I no longer need.</div>
-            </div>
-          </div>
-          <button class="btn btn-primary btn-full" onclick="goToStep2()" id="btnNextStep" disabled>Continue →</button>
+        <p style="font-size:.9rem;color:var(--ink-3);margin-bottom:20px;">
+          One account does it all — find books, list your own, and chat with peers.
+        </p>
+        <div class="form-group">
+          <label class="form-label">Full name</label>
+          <input class="form-input" type="text" id="regName" placeholder="Mario Rossi" autocomplete="name">
         </div>
-
-        <!-- Step 2: Account details -->
-        <div id="stepDetails" style="display:none;">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px;">
-            <button class="btn btn-ghost btn-sm" onclick="goToStep1()">← Back</button>
-            <span id="selectedRoleBadge"></span>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" type="email" id="regEmail" placeholder="mario@example.it" autocomplete="email">
           </div>
           <div class="form-group">
-            <label class="form-label">Full name</label>
-            <input class="form-input" type="text" id="regName" placeholder="Mario Rossi" autocomplete="name">
+            <label class="form-label">Password</label>
+            <input class="form-input" type="password" id="regPassword" placeholder="min 6 chars" autocomplete="new-password">
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Email</label>
-              <input class="form-input" type="email" id="regEmail" placeholder="mario@example.it" autocomplete="email">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Password</label>
-              <input class="form-input" type="password" id="regPassword" placeholder="min 6 chars" autocomplete="new-password">
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Your school</label>
-            <select class="form-select" id="regSchool"></select>
-            <div class="form-hint">This determines your listing priority on the platform.</div>
-          </div>
-          <div id="regError" class="form-error" style="margin-bottom:12px;"></div>
-          <button class="btn btn-primary btn-full" onclick="handleRegister()">Create account</button>
         </div>
+        <div class="form-group">
+          <label class="form-label">Your school</label>
+          <select class="form-select" id="regSchool"></select>
+          <div class="form-hint">This determines your listing priority on the platform.</div>
+        </div>
+        <div id="regError" class="form-error" style="margin-bottom:12px;"></div>
+        <button class="btn btn-primary btn-full" onclick="handleRegister()">Create account</button>
       </div>
     </div>
   </div>
@@ -126,36 +102,11 @@
 <script src="db.js"></script>
 <script src="app.js"></script>
 <script>
-  let selectedRole = null;
-
   function switchTab(tab) {
     document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
     document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
     document.getElementById('panel' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
-  }
-
-  function selectRole(role) {
-    selectedRole = role;
-    document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
-    document.getElementById('role' + role.charAt(0).toUpperCase() + role.slice(1)).classList.add('selected');
-    document.getElementById('btnNextStep').disabled = false;
-  }
-
-  function goToStep2() {
-    if (!selectedRole) return;
-    document.getElementById('stepRole').style.display = 'none';
-    document.getElementById('stepDetails').style.display = 'block';
-    const badge = document.getElementById('selectedRoleBadge');
-    badge.innerHTML = `<span class="badge ${selectedRole === 'buyer' ? 'badge-info' : 'badge-warning'}">${selectedRole === 'buyer' ? '🛒 Buyer' : '📦 Seller'}</span>`;
-    // Build school select
-    const sel = document.getElementById('regSchool');
-    buildSchoolSelect(sel);
-  }
-
-  function goToStep1() {
-    document.getElementById('stepDetails').style.display = 'none';
-    document.getElementById('stepRole').style.display = 'block';
   }
 
   function handleLogin() {
@@ -180,15 +131,16 @@
     const schoolId = document.getElementById('regSchool').value;
     const errEl = document.getElementById('regError');
     errEl.textContent = '';
-    if (!name || !email || !password || !schoolId || !selectedRole) {
+    if (!name || !email || !password || !schoolId) {
       errEl.textContent = 'Please fill in all fields.'; return;
     }
     if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
-    const result = DB.createUser({ name, email, password, role: selectedRole, schoolId });
+    // New accounts default to the free plan
+    const result = DB.createUser({ name, email, password, plan: 'free', schoolId });
     if (result.error) { errEl.textContent = result.error; return; }
     DB.setSession(result.user);
     toast('Account created! Welcome, ' + name.split(' ')[0] + ' 🎉', 'success');
-    setTimeout(() => { location.href = selectedRole === 'seller' ? 'announcements.html' : 'announcements.html'; }, 700);
+    setTimeout(() => { location.href = 'announcements.html'; }, 700);
   }
 
   // Init
@@ -196,6 +148,8 @@
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab') || 'login';
     switchTab(tab);
+    // Build school select once (no longer behind a step transition)
+    buildSchoolSelect(document.getElementById('regSchool'));
     // If already logged in, redirect
     if (DB.currentUser()) location.href = 'index.html';
   });

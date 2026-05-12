@@ -237,6 +237,8 @@ function openConversation(convId) {
   const otherId = conv.buyerId === currentUser.id ? conv.sellerId : conv.buyerId;
   const other = DB.getUserById(otherId);
   const listing = DB.getListingById(conv.listingId);
+  // In this specific conversation, am I the buyer or the seller?
+  const iAmBuyer = conv.buyerId === currentUser.id;
 
   // Header
   const header = document.getElementById('chatHeader');
@@ -247,7 +249,7 @@ function openConversation(convId) {
       <div class="chat-header-sub">${listing ? escHtml(listing.bookTitle) + ' · ' + formatPrice(listing.price) : ''}</div>
     </div>
     <div style="margin-left:auto;display:flex;gap:8px;">
-      ${currentUser.role === 'buyer' && listing ? `<button class="btn btn-primary btn-sm" onclick="quickBuy('${listing.id}','${otherId}')">🔒 Reserve book</button>` : ''}
+      ${iAmBuyer && listing ? `<button class="btn btn-primary btn-sm" onclick="quickBuy('${listing.id}','${otherId}')">🔒 Reserve book</button>` : ''}
     </div>`;
 
   document.getElementById('emptyChatState').style.display = 'none';
@@ -324,8 +326,9 @@ function triggerBot(userText) {
   if (!conv) return;
 
   const listing = DB.getListingById(conv.listingId);
-  // Bot plays the OPPOSITE role of currentUser
-  const botRole = currentUser.role === 'buyer' ? 'seller' : 'buyer';
+  // Bot plays the OPPOSITE side of the user in THIS specific conversation
+  const iAmBuyer = conv.buyerId === currentUser.id;
+  const botRole = iAmBuyer ? 'seller' : 'buyer';
   const intent = detectIntent(userText);
 
   botTyping = true;

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MatchBook — Your Listings</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Disabled state for the ISBN-gated seller form */
+    .form-input:disabled, .form-select:disabled, .form-textarea:disabled {
+      background: #f5f0eb;
+      color: var(--ink-3);
+      cursor: not-allowed;
+      opacity: .65;
+    }
+    .isbn-feedback.ok    { color: #2d8a3e; }
+    .isbn-feedback.err   { color: #c44; }
+    .isbn-feedback.muted { color: var(--ink-3); }
+    .form-input.input-error { border-color: #c44; }
+  </style>
+</head>
+<body>
+<nav class="mb-nav"></nav>
+
+<main class="page-body">
+<div class="container">
+
+  <div class="page-header">
+    <h1>Your listings</h1>
+    <p>Manage your listings and post new books for sale.</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:32px;align-items:start;">
+    <!-- Listings -->
+    <div>
+      <div id="sellerListings"></div>
+    </div>
+
+    <!-- Post new -->
+    <div class="sidebar-card seller-form-wrap" style="max-width:100%;position:sticky;top:calc(var(--nav-h) + 24px);">
+      <div style="font-weight:600;margin-bottom:16px;font-family:var(--font-display);">Post a new listing</div>
+
+      <!-- ISBN field — always enabled, gates the rest -->
+      <div class="form-group">
+        <label class="form-label">Codice ISBN</label>
+        <input class="form-input" type="text" id="sellIsbn"
+               placeholder="e.g. 9788800000003" maxlength="13"
+               inputmode="numeric" autocomplete="off" oninput="onIsbnInput()">
+        <div id="isbnFeedback" class="isbn-feedback muted"
+             style="margin-top:6px;font-size:.8rem;min-height:18px;"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Price (€)</label>
+          <input class="form-input" type="number" id="sellPrice" placeholder="—"
+                 min="0.50" step="0.50" disabled oninput="validatePrice()">
+          <div id="priceHint" style="margin-top:4px;font-size:.75rem;color:var(--ink-3);min-height:14px;"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Condition</label>
+          <select class="form-select" id="sellCondition" disabled>
+            <option value="new">New</option>
+            <option value="like_new">Like New</option>
+            <option value="good" selected>Good</option>
+            <option value="fair">Fair</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description (optional)</label>
+        <textarea class="form-textarea" id="sellDescription"
+                  placeholder="Any notes about the book's condition…"
+                  style="min-height:70px;" disabled></textarea>
+      </div>
+      <div id="sellError" class="form-error" style="margin-bottom:8px;"></div>
+      <button class="btn btn-primary btn-full" id="sellSubmit" onclick="handlePost()" disabled>Post listing</button>
+    </div>
+  </div>
+
+</div>
+</main>
+
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+let currentUser = null;
+let currentBook = null; // book matched from BOOKS_DB after a valid ISBN is entered
+
+document.addEventListener('DOMContentLoaded', () => {
+  currentUser = DB.currentUser();
+  if (!currentUser) { location.href = 'auth.html?next=my-listings.html'; return; }
+  renderSellerListings();
+});
+
+// ── ISBN LOOKUP + GATING ───────────────────────────────────────────────────────
+
+function onIsbnInput() {
+  const input = document.getElementById('sellIsbn');
+  const feedback = document.getElementById('isbnFeedback');
+  // strip anything that isn't a digit (defensive — ISBNs here are 13 digits)
+  const isbn = input.value.replace(/\D/g, '').slice(0, 13);
+  if (isbn !== input.value) input.value = isbn;
+
+  // any change invalidates the previous match
+  currentBook = null;
+  setFieldsLocked(true);
+  document.getElementById('sellError').textContent = '';
+
+  if (isbn.length === 0) {
+    feedback.textContent = '';
+    feedback.className = 'isbn-feedback muted';
+    return;
+  }
+
+  if (isbn.length < 13) {
+    feedback.textContent = `${isbn.length} / 13 digits…`;
+    feedback.className = 'isbn-feedback muted';
+    return;
+  }
+
+  // exactly 13 digits → look up
+  const book = BOOKS_DB.find(b => b.isbn === isbn);
+  if (book) {
+    currentBook = book;
+    feedback.innerHTML = `✅ Found: <strong>${escHtml(book.title)}</strong> — ${escHtml(book.author)}`;
+    feedback.className = 'isbn-feedback ok';
+    setFieldsLocked(false);
+    updatePriceHint();
+  } else {
+    feedback.textContent = '❌ ISBN not found in catalog';
+    feedback.className = 'isbn-feedback err';
+  }
+}
+
+function setFieldsLocked(locked) {
+  ['sellPrice', 'sellCondition', 'sellDescription', 'sellSubmit']
+    .forEach(id => { document.getElementById(id).disabled = locked; });
+  if (locked) {
+    const priceEl = document.getElementById('sellPrice');
+    priceEl.value = '';
+    priceEl.classList.remove('input-error');
+    priceEl.removeAttribute('max');
+    priceEl.placeholder = '—';
+    document.getElementById('sellDescription').value = '';
+    document.getElementById('sellCondition').value = 'good';
+    document.getElementById('priceHint').textContent = '';
+  }
+}
+
+function updatePriceHint() {
+  if (!currentBook) return;
+  const maxPrice = +(currentBook.cost * 0.5).toFixed(2);
+  const priceEl = document.getElementById('sellPrice');
+  priceEl.max = maxPrice;
+  priceEl.placeholder = `≤ ${maxPrice.toFixed(2)}`;
+  document.getElementById('priceHint').innerHTML =
+    `Max: <strong>€${maxPrice.toFixed(2)}</strong> (50% of list price €${currentBook.cost.toFixed(2)})`;
+}
+
+function validatePrice() {
+  if (!currentBook) return;
+  const priceEl = document.getElementById('sellPrice');
+  const errEl = document.getElementById('sellError');
+  const price = parseFloat(priceEl.value);
+  const maxPrice = +(currentBook.cost * 0.5).toFixed(2);
+
+  if (isNaN(price) || price <= 0) {
+    errEl.textContent = '';
+    priceEl.classList.remove('input-error');
+    return;
+  }
+  if (price > maxPrice) {
+    errEl.textContent = `Price exceeds the maximum allowed (€${maxPrice.toFixed(2)} = 50% of list price).`;
+    priceEl.classList.add('input-error');
+  } else {
+    errEl.textContent = '';
+    priceEl.classList.remove('input-error');
+  }
+}
+
+function handlePost() {
+  const errEl = document.getElementById('sellError');
+  errEl.textContent = '';
+
+  if (!currentBook) {
+    errEl.textContent = 'Enter a valid ISBN code first.';
+    return;
+  }
+
+  const price = parseFloat(document.getElementById('sellPrice').value);
+  const condition = document.getElementById('sellCondition').value;
+  const description = document.getElementById('sellDescription').value.trim();
+
+  if (isNaN(price) || price <= 0) { errEl.textContent = 'Please set a valid price.'; return; }
+  const maxPrice = +(currentBook.cost * 0.5).toFixed(2);
+  if (price > maxPrice) {
+    errEl.textContent = `Price exceeds the maximum allowed (€${maxPrice.toFixed(2)} = 50% of list price).`;
+    return;
+  }
+
+  DB.createListing({
+    sellerId: currentUser.id,
+    schoolId: currentUser.schoolId,
+    isbn: currentBook.isbn,
+    bookTitle: currentBook.title,
+    bookAuthor: currentBook.author,
+    subject: currentBook.subject,
+    condition, price, description,
+  });
+
+  // Reset form back to locked state
+  document.getElementById('sellIsbn').value = '';
+  const fb = document.getElementById('isbnFeedback');
+  fb.textContent = ''; fb.className = 'isbn-feedback muted';
+  currentBook = null;
+  setFieldsLocked(true);
+
+  toast('Listing posted! ✅', 'success');
+  renderSellerListings();
+}
+
+// ── LIST OF USER'S OWN LISTINGS ────────────────────────────────────────────────
+
+function renderSellerListings() {
+  const container = document.getElementById('sellerListings');
+  const listings = DB.getListings().filter(l => l.sellerId === currentUser.id);
+
+  if (listings.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📦</div>
+        <h3>No listings yet</h3>
+        <p>Post your first book using the form →</p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = listings.map(l => `
+    <div class="txn-card animate-in">
+      <div class="txn-header">
+        <div>
+          <div class="txn-title">${escHtml(l.bookTitle)}</div>
+          <div class="txn-id">${l.isbn}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${conditionBadge(l.condition)}
+          ${l.status === 'active' ? '<span class="badge badge-success">Active</span>' : l.status === 'reserved' ? '<span class="badge badge-warning">Reserved</span>' : '<span class="badge badge-muted">Sold</span>'}
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-family:var(--font-display);font-size:1.2rem;color:var(--accent);font-weight:700;">${formatPrice(l.price)}</div>
+        <div style="font-size:.8rem;color:var(--ink-3);">Posted ${formatDate(l.createdAt)}</div>
+      </div>
+      ${l.description ? `<div class="text-muted text-sm" style="margin-top:8px;">${escHtml(l.description)}</div>` : ''}
+      ${l.status === 'active' ? `<div style="margin-top:12px;"><button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteListing('${l.id}')">Remove listing</button></div>` : ''}
+    </div>
+  `).join('');
+}
+
+function deleteListing(id) {
+  if (!confirm('Remove this listing?')) return;
+  DB.updateListing(id, { status: 'sold' });
+  toast('Listing removed', 'info');
+  renderSellerListings();
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
