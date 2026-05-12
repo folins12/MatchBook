@@ -6,12 +6,24 @@
 // ─── PLATFORM CONSTANTS ──────────────────────────────────────────────────────
 
 // Flat fee added on top of the book price for every purchase.
-// Used in the listing detail modal and in transaction creation.
+// Waived for PRO subscribers. Used in the listing detail modal
+// and in transaction creation.
 const BUYER_FEE = 1.00;
 
 // Share of the book price the buyer pays online upfront (escrow deposit).
 // The complement (1 - DEPOSIT_RATE) is paid in cash in person.
 const DEPOSIT_RATE = 0.3;
+
+// PRO subscription — paid once a year, grants:
+//   • no buyer fee on book purchases (saves BUYER_FEE per transaction)
+//   • PRO_FREE_BOOSTS free listing boosts on signup
+const PRO_PRICE = 5.00;
+const PRO_FREE_BOOSTS = 5;
+
+// Cost a free user pays to boost a single listing to the top of their school's
+// search list. PRO subscribers spend a free boost first; once those run out
+// they fall back to paying BOOST_FEE per boost like everyone else.
+const BOOST_FEE = 1.50;
 
 // ─── SCHOOLS DATABASE ────────────────────────────────────────────────────────
 
@@ -125,7 +137,10 @@ const DB = {
       email: data.email.toLowerCase(),
       password: data.password, // plain text for demo
       name: data.name,
-      plan: data.plan || 'free', // 'free' | 'pro' — cosmetic for now, no functional difference
+      plan: data.plan || 'free', // 'free' | 'pro'
+      // PRO members get PRO_FREE_BOOSTS bundled boosts on signup; free users start with 0.
+      freeBoosts: (data.plan === 'pro') ? PRO_FREE_BOOSTS : 0,
+      proSince: (data.plan === 'pro') ? Date.now() : null,
       schoolId: data.schoolId,
       balance: 200, // mock balance — every account can buy
       penaltyCount: 0,
@@ -143,6 +158,22 @@ const DB = {
     users[idx] = { ...users[idx], ...updates };
     this.saveUsers(users);
     return users[idx];
+  },
+  // Atomically upgrade a user to PRO: charge them PRO_PRICE from balance,
+  // flip the plan flag, top up their free-boost bank by PRO_FREE_BOOSTS,
+  // and stamp proSince. Returns { user } on success or { error } otherwise.
+  upgradeToPro(userId) {
+    const user = this.getUserById(userId);
+    if (!user) return { error: 'User not found' };
+    if (user.plan === 'pro') return { error: 'Already on PRO' };
+    if (user.balance < PRO_PRICE) return { error: 'Insufficient balance' };
+    const updated = this.updateUser(userId, {
+      plan: 'pro',
+      balance: parseFloat((user.balance - PRO_PRICE).toFixed(2)),
+      freeBoosts: (user.freeBoosts || 0) + PRO_FREE_BOOSTS,
+      proSince: Date.now(),
+    });
+    return { user: updated };
   },
   deleteUser(id) {
     const users = this.getUsers().filter(u => u.id !== id);
@@ -183,13 +214,42 @@ const DB = {
     this.saveListings(listings);
     return listing;
   },
-  toggleBoost(id) {
+  // Turn boost ON for a listing. Consumes a free boost if the seller has any
+  // (PRO bundle), otherwise debits BOOST_FEE from their balance.
+  // Returns { listing, paidWith: 'free' | 'balance' } on success, { error } otherwise.
+  enableBoost(listingId, userId) {
     const listings = this.getListings();
-    const idx = listings.findIndex(l => l.id === id);
-    if (idx === -1) return null;
-    listings[idx].boosted = !listings[idx].boosted;
+    const idx = listings.findIndex(l => l.id === listingId);
+    if (idx === -1) return { error: 'Listing not found' };
+    if (listings[idx].sellerId !== userId) return { error: 'Not your listing' };
+    if (listings[idx].boosted) return { error: 'Already boosted' };
+
+    const user = this.getUserById(userId);
+    if (!user) return { error: 'User not found' };
+
+    // Prefer free boosts (PRO bundle) over charging the balance.
+    if ((user.freeBoosts || 0) > 0) {
+      this.updateUser(userId, { freeBoosts: user.freeBoosts - 1 });
+      listings[idx].boosted = true;
+      this.saveListings(listings);
+      return { listing: listings[idx], paidWith: 'free' };
+    }
+
+    if (user.balance < BOOST_FEE) return { error: 'Insufficient balance' };
+    this.updateUser(userId, { balance: parseFloat((user.balance - BOOST_FEE).toFixed(2)) });
+    listings[idx].boosted = true;
     this.saveListings(listings);
-    return listings[idx];
+    return { listing: listings[idx], paidWith: 'balance' };
+  },
+  // Turn boost OFF — free. Doesn't refund anything (consistent with real ad-platform logic).
+  disableBoost(listingId, userId) {
+    const listings = this.getListings();
+    const idx = listings.findIndex(l => l.id === listingId);
+    if (idx === -1) return { error: 'Listing not found' };
+    if (listings[idx].sellerId !== userId) return { error: 'Not your listing' };
+    listings[idx].boosted = false;
+    this.saveListings(listings);
+    return { listing: listings[idx] };
   },
   updateListing(id, updates) {
     const listings = this.getListings();
@@ -286,14 +346,19 @@ const DB = {
     const txns = this.getTransactions();
     const deposit = parseFloat((listing.price * 0.30).toFixed(2));
     const remainder = parseFloat((listing.price * 0.70).toFixed(2));
+    // PRO buyers don't pay the platform's flat buyer fee. The fee is snapshotted
+    // into the transaction at creation time so a later plan change doesn't
+    // retroactively alter the price of an already-created deal.
+    const buyer = this.getUserById(buyerId);
+    const fee = (buyer && buyer.plan === 'pro') ? 0 : BUYER_FEE;
     const txn = {
       id: 'txn_' + Date.now() + Math.random().toString(36).slice(2, 7),
       buyerId, sellerId, listingId,
       bookPrice: listing.price,
-      buyerFee: BUYER_FEE,
+      buyerFee: fee,
       // totalPrice = book price + buyer fee (this is the buyer's full out-of-pocket).
       // The 30/70 split still applies to the book price only — the fee goes to the platform.
-      totalPrice: parseFloat((listing.price + BUYER_FEE).toFixed(2)),
+      totalPrice: parseFloat((listing.price + fee).toFixed(2)),
       deposit, remainder,
       sellerPenalty: deposit, // 30% of price
       status: 'pending_deposit', // pending_deposit → deposit_paid → completed | disputed | refunded
@@ -356,13 +421,15 @@ const DB = {
 
   // ── Seed ───────────────────────────────────────────────────────────────────
   seed() {
-    if (this._get('mb_seeded_v2')) return;
-    // Wipe any data from the previous schema (role-based) so we start clean
-    if (this._get('mb_seeded')) {
-      ['mb_users','mb_listings','mb_conversations','mb_transactions','mb_session','mb_seeded']
-        .forEach(k => localStorage.removeItem(k));
-    }
-    // Seed demo users — buyer@demo.it is now the "free" plan, seller@demo.it the "pro" plan
+    if (this._get('mb_seeded_v3')) return;
+    // Wipe data from any previous schema so we start clean on the new PRO-aware model.
+    ['mb_seeded', 'mb_seeded_v2'].forEach(prev => {
+      if (this._get(prev)) {
+        ['mb_users','mb_listings','mb_conversations','mb_transactions','mb_session', prev]
+          .forEach(k => localStorage.removeItem(k));
+      }
+    });
+    // Seed demo users — buyer@demo.it is on free, seller@demo.it / seller2@demo.it are PRO
     this.createUser({ email: 'buyer@demo.it',  password: 'demo1234', name: 'Giulia Ferraro',  plan: 'free', schoolId: 'NA001' });
     this.createUser({ email: 'seller@demo.it', password: 'demo1234', name: 'Marco Esposito',  plan: 'pro',  schoolId: 'NA001' });
     this.createUser({ email: 'seller2@demo.it',password: 'demo1234', name: 'Sofia Romano',    plan: 'pro',  schoolId: 'NA002' });
@@ -378,7 +445,7 @@ const DB = {
       this.createListing({ sellerId: s2.id, schoolId: 'NA002', isbn: '9788800000007', bookTitle: 'Biologia — La scienza della vita', bookAuthor: 'Campbell & Reece', subject: 'Biology', condition: 'good', price: 18.00, description: 'Excellent condition' });
       this.createListing({ sellerId: s2.id, schoolId: 'NA002', isbn: '9788800000009', bookTitle: 'Storia Moderna Vol. 1', bookAuthor: 'Braudel', subject: 'History', condition: 'like_new', price: 14.50 });
     }
-    this._set('mb_seeded_v2', true);
+    this._set('mb_seeded_v3', true);
   },
 };
 

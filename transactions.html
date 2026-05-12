@@ -252,7 +252,11 @@ function openDepositModal(txnId) {
   const t = DB.getTransactionById(txnId);
   const listing = DB.getListingById(t.listingId);
   const user = DB.getUserById(currentUser.id);
-  const hasBalance = user.balance >= t.deposit;
+  // Upfront payment = deposit + buyer fee. The fee can be €0 for PRO buyers
+  // (whose buyerFee was snapshotted at transaction creation).
+  const fee = t.buyerFee || 0;
+  const upfront = parseFloat((t.deposit + fee).toFixed(2));
+  const hasBalance = user.balance >= upfront;
 
   document.getElementById('depositModalBody').innerHTML = `
     <div style="margin-bottom:20px;">
@@ -264,13 +268,16 @@ function openDepositModal(txnId) {
       <div class="price-breakdown">
         <div class="price-row"><span>Your current balance</span><span style="color:var(--green);">€${user.balance.toFixed(2)}</span></div>
         <div class="price-row"><span>Deposit amount</span><span style="color:var(--accent);">-${formatPrice(t.deposit)}</span></div>
-        <div class="price-row total"><span>Balance after payment</span><span style="color:${hasBalance ? 'var(--green)' : 'var(--red)'};">€${(user.balance - t.deposit).toFixed(2)}</span></div>
+        <div class="price-row"><span>Buyer fee</span><span>${fee > 0
+          ? '<span style="color:var(--accent);">-€' + fee.toFixed(2) + '</span>'
+          : '<span style="text-decoration:line-through;color:var(--ink-4);margin-right:6px;">-€1.00</span><span style="color:var(--accent);font-weight:600;">FREE · PRO</span>'}</span></div>
+        <div class="price-row total"><span>Balance after payment</span><span style="color:${hasBalance ? 'var(--green)' : 'var(--red)'};">€${(user.balance - upfront).toFixed(2)}</span></div>
       </div>
       ${!hasBalance ? `<div class="warning-banner" style="margin-top:12px;margin-bottom:0;">⚠️ Insufficient balance. <button class="btn btn-ghost btn-sm" onclick="closeModal('depositModal');topUpBalance();">Add funds</button></div>` : ''}
     </div>
     <div style="display:flex;gap:10px;">
       <button class="btn btn-primary btn-full" onclick="executeDeposit('${txnId}')" ${!hasBalance ? 'disabled' : ''}>
-        💳 Pay ${formatPrice(t.deposit)} now
+        💳 Pay ${formatPrice(upfront)} now
       </button>
       <button class="btn btn-secondary" onclick="closeModal('depositModal')">Cancel</button>
     </div>`;

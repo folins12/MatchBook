@@ -261,9 +261,16 @@ function renderSellerListings() {
         <div style="text-align:right;">
           <div style="font-size:.8rem;color:var(--ink-3);">Posted ${formatDate(l.createdAt)}</div>
           ${l.status === 'active'
-            ? `<button class="boost-btn ${l.boosted ? 'boosted' : ''}" onclick="toggleBoost('${l.id}')">
-                 🚀 ${l.boosted ? 'Boosted ✓' : 'Boost'}
-               </button>`
+            ? (() => {
+                if (l.boosted) {
+                  return `<button class="boost-btn boosted" onclick="toggleBoost('${l.id}')">🚀 Boosted ✓</button>`;
+                }
+                const freeBoosts = currentUser?.freeBoosts || 0;
+                const label = freeBoosts > 0
+                  ? `🚀 Boost <span class="boost-cost free">1 free</span>`
+                  : `🚀 Boost <span class="boost-cost paid">€${BOOST_FEE.toFixed(2)}</span>`;
+                return `<button class="boost-btn" onclick="toggleBoost('${l.id}')">${label}</button>`;
+              })()
             : ''}
         </div>
       </div>
@@ -274,9 +281,45 @@ function renderSellerListings() {
 }
 
 function toggleBoost(id) {
-  const updated = DB.toggleBoost(id);
-  if (!updated) return;
-  toast(updated.boosted ? 'Listing boosted! 🚀' : 'Boost removed', updated.boosted ? 'success' : 'info');
+  const listing = DB.getListingById(id);
+  if (!listing) return;
+
+  // Turning a boost OFF is always free — no confirmation needed.
+  if (listing.boosted) {
+    const res = DB.disableBoost(id, currentUser.id);
+    if (res.error) { toast(res.error, 'error'); return; }
+    toast('Boost removed', 'info');
+    renderSellerListings();
+    return;
+  }
+
+  // Turning a boost ON: PRO members spend a free boost (if any),
+  // free users (and PRO members out of free boosts) get charged BOOST_FEE.
+  const user = DB.getUserById(currentUser.id);
+  const hasFreeBoost = (user.freeBoosts || 0) > 0;
+
+  const msg = hasFreeBoost
+    ? `Use 1 free boost? (${user.freeBoosts} remaining)`
+    : `Boost this listing for €${BOOST_FEE.toFixed(2)}?\n\nThis will be deducted from your balance (€${user.balance.toFixed(2)}).`;
+
+  if (!confirm(msg)) return;
+
+  const res = DB.enableBoost(id, currentUser.id);
+  if (res.error) {
+    if (res.error === 'Insufficient balance') {
+      toast(`Not enough balance — you need €${BOOST_FEE.toFixed(2)}`, 'error');
+    } else {
+      toast(res.error, 'error');
+    }
+    return;
+  }
+
+  currentUser = DB.getUserById(currentUser.id); // refresh
+  const successMsg = res.paidWith === 'free'
+    ? `Listing boosted! 🚀 (${currentUser.freeBoosts} free boosts left)`
+    : `Listing boosted! 🚀 -€${BOOST_FEE.toFixed(2)}`;
+  toast(successMsg, 'success');
+  buildNav(); // free-boost count in the dropdown may have changed
   renderSellerListings();
 }
 

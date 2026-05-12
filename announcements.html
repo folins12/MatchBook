@@ -248,10 +248,13 @@ function openListingDetail(id) {
   if (!l) return;
   const seller = DB.getUserById(l.sellerId);
   const school = getSchoolById(l.schoolId);
-  const BUYER_FEE = 1.00;
-  const deposit = (l.price * 0.30 + BUYER_FEE).toFixed(2);
+  // PRO buyers skip the buyer fee entirely. We snapshot the user's current plan
+  // here so the modal price breakdown matches what createTransaction will actually charge.
+  const isPro = currentUser && currentUser.plan === 'pro';
+  const fee = isPro ? 0 : BUYER_FEE;
+  const deposit = (l.price * 0.30 + fee).toFixed(2);
   const remainder = (l.price * 0.70).toFixed(2);
-  const total = (l.price + BUYER_FEE).toFixed(2);
+  const total = (l.price + fee).toFixed(2);
 
 
   const body = document.getElementById('listingModalBody');
@@ -287,7 +290,12 @@ function openListingDetail(id) {
       <div class="price-row"><span>Book price</span><span>${formatPrice(l.price)}</span></div>
       <div class="price-row"><span>Deposit (30% — paid online)</span><span style="color:var(--accent);">€${deposit}</span></div>
       <div class="price-row"><span>Remainder (70% — paid in person)</span><span>€${remainder}</span></div>
-      <div class="price-row"><span>Buyer fee</span><span style="color:var(--accent);">€${BUYER_FEE.toFixed(2)}</span></div>
+      <div class="price-row">
+        <span>Buyer fee</span>
+        <span>${isPro
+          ? '<span style="text-decoration:line-through;color:var(--ink-4);margin-right:6px;">€' + BUYER_FEE.toFixed(2) + '</span><span style="color:var(--accent);font-weight:600;">FREE · PRO</span>'
+          : '<span style="color:var(--accent);">€' + BUYER_FEE.toFixed(2) + '</span>'}</span>
+      </div>
       <div class="price-row total"><span>Total</span><span>€${total}</span></div>
 
     </div>

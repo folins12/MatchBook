@@ -36,6 +36,24 @@ function buildNav() {
             <div class="nav-dropdown" id="navDropdown">
               <div class="dropdown-school">${school ? school.name : ''}</div>
               <div class="dropdown-balance">Balance: €${user.balance?.toFixed(2) ?? '0.00'}</div>
+              ${user.plan === 'pro' ? `
+                <div class="dropdown-pro-info">
+                  <div class="dropdown-pro-badge">
+                    <svg class="crown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M2 4l3 12h14l3-12-6 7-4-9-4 9-6-7z"/>
+                    </svg>
+                    PRO Member
+                  </div>
+                  <div class="dropdown-pro-boosts">${user.freeBoosts || 0} free boost${(user.freeBoosts || 0) === 1 ? '' : 's'} left</div>
+                </div>
+              ` : `
+                <a href="pro.html" class="btn-upgrade-pro" aria-label="Upgrade to PRO">
+                  <svg class="crown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M2 4l3 12h14l3-12-6 7-4-9-4 9-6-7z"/>
+                  </svg>
+                  Upgrade to PRO
+                </a>
+              `}
               <hr>
               <button class="dropdown-btn" onclick="logout()">Sign out</button>
             </div>

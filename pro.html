@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MatchBook PRO — Save on every book, boost more listings</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="mb-nav"></nav>
+
+<main class="pro-page">
+  <div class="container">
+
+    <!-- HERO -->
+    <section class="pro-hero animate-in">
+      <div class="pro-tag">
+        <svg class="crown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M2 4l3 12h14l3-12-6 7-4-9-4 9-6-7z"/>
+        </svg>
+        MatchBook PRO
+      </div>
+      <h1 class="pro-title">
+        Skip the buyer fees.<br>
+        <em>Boost your listings.</em><br>
+        For just €5 a year.
+      </h1>
+      <p class="pro-sub">
+        PRO is for students who trade textbooks often — buy a few extra books, list a few extra books, and the subscription pays for itself before the school year is half done.
+      </p>
+    </section>
+
+    <!-- BENEFITS -->
+    <section class="pro-benefits animate-in">
+      <div class="pro-benefit-card">
+        <div class="pro-benefit-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="6" width="18" height="13" rx="2"/>
+            <path d="M7 6V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/>
+            <path d="M3 11h18"/>
+            <circle cx="12" cy="15" r="1.4" fill="currentColor" stroke="none"/>
+          </svg>
+        </div>
+        <div class="pro-benefit-title">Zero buyer fees</div>
+        <div class="pro-benefit-desc">
+          Free members pay a €1.00 platform fee on every book they buy. With PRO that fee disappears — you pay just the book's listed price and the standard 30% deposit.
+        </div>
+        <span class="pro-benefit-savings">Saves €1.00 on every purchase</span>
+      </div>
+
+      <div class="pro-benefit-card">
+        <div class="pro-benefit-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09Z"/>
+            <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2Z"/>
+            <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>
+            <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
+          </svg>
+        </div>
+        <div class="pro-benefit-title">5 free boosts included</div>
+        <div class="pro-benefit-desc">
+          Each Priority Boost pins a single listing to the top of your school's search list — and normally costs €1.50. PRO members get 5 boosts bundled in, on the house.
+        </div>
+        <span class="pro-benefit-savings">€7.50 of boosts included</span>
+      </div>
+    </section>
+
+    <!-- PRICING + CTA -->
+    <section class="pro-pricing-section">
+      <div class="pro-pricing-card" id="pricingCard">
+        <div class="pro-pricing-label">MatchBook PRO</div>
+        <div class="pro-price-display">€5<span class="pro-price-unit">.00</span></div>
+        <div class="pro-price-period">per year — billed once</div>
+
+        <!-- Action area: gets replaced by JS depending on plan / login state -->
+        <div id="upgradeActionWrap">
+          <button id="upgradeBtn" class="pro-upgrade-btn" onclick="doUpgrade()">
+            <svg class="crown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M2 4l3 12h14l3-12-6 7-4-9-4 9-6-7z"/>
+            </svg>
+            Upgrade now — €5.00
+          </button>
+          <div id="upgradeHint" class="pro-pricing-hint"></div>
+        </div>
+
+        <div class="pro-pricing-fine">Cancel anytime. Pays itself off in ~5 purchases or ~4 boosts.</div>
+      </div>
+    </section>
+
+    <!-- COMPARISON -->
+    <section class="pro-compare-section animate-in">
+      <h2 class="pro-section-title">Free vs PRO</h2>
+      <div class="pro-compare">
+        <div class="pro-compare-row pro-compare-header">
+          <div>Feature</div>
+          <div style="text-align:center;">Free</div>
+          <div style="text-align:center;">PRO</div>
+        </div>
+        <div class="pro-compare-row">
+          <div class="pro-compare-feature">Browse &amp; post listings</div>
+          <div class="pro-compare-value included">✓</div>
+          <div class="pro-compare-value included">✓</div>
+        </div>
+        <div class="pro-compare-row">
+          <div class="pro-compare-feature">Escrow-protected deposits</div>
+          <div class="pro-compare-value included">✓</div>
+          <div class="pro-compare-value included">✓</div>
+        </div>
+        <div class="pro-compare-row">
+          <div class="pro-compare-feature">In-app chat with sellers</div>
+          <div class="pro-compare-value included">✓</div>
+          <div class="pro-compare-value included">✓</div>
+        </div>
+        <div class="pro-compare-row">
+          <div class="pro-compare-feature">Buyer fee on each purchase</div>
+          <div class="pro-compare-value excluded">€1.00</div>
+          <div class="pro-compare-value included">€0.00</div>
+        </div>
+        <div class="pro-compare-row">
+          <div class="pro-compare-feature">Boost a listing</div>
+          <div class="pro-compare-value excluded">€1.50 each</div>
+          <div class="pro-compare-value included">5 included</div>
+        </div>
+        <div class="pro-compare-row">
+          <div class="pro-compare-feature">Annual cost</div>
+          <div class="pro-compare-value">Free</div>
+          <div class="pro-compare-value included">€5.00</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Back link -->
+    <div class="pro-back-wrap">
+      <a href="announcements.html" class="btn btn-ghost">← Back to browse</a>
+    </div>
+
+  </div>
+</main>
+
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+  let currentUser = null;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    currentUser = DB.currentUser();
+    // Not logged in? Bounce to auth with a redirect-back.
+    if (!currentUser || !currentUser.active) {
+      location.href = 'auth.html?next=' + encodeURIComponent('pro.html');
+      return;
+    }
+    renderUpgradeArea();
+  });
+
+  function renderUpgradeArea() {
+    const wrap = document.getElementById('upgradeActionWrap');
+    if (!wrap) return;
+
+    // Already PRO — flip the CTA into a confirmation state.
+    if (currentUser.plan === 'pro') {
+      wrap.innerHTML = `
+        <div class="pro-already-state">
+          <div class="pro-already-icon" aria-hidden="true">✓</div>
+          <div class="pro-already-text">You're a PRO member</div>
+          <div class="pro-already-sub">${currentUser.freeBoosts || 0} free boost${(currentUser.freeBoosts || 0) === 1 ? '' : 's'} remaining</div>
+        </div>
+        <a href="announcements.html" class="btn btn-secondary" style="margin-top:18px;">Go browse listings</a>
+      `;
+      document.querySelector('.pro-pricing-fine')?.remove();
+      return;
+    }
+
+    // Free user — show insufficient-balance hint inline if applicable.
+    const hint = document.getElementById('upgradeHint');
+    if (currentUser.balance < 5) {
+      hint.innerHTML = `⚠️ Your balance is €${currentUser.balance.toFixed(2)}. You need €5.00 to upgrade.`;
+      hint.className = 'pro-pricing-hint pro-pricing-hint-warn';
+      document.getElementById('upgradeBtn').disabled = true;
+    } else {
+      hint.innerHTML = `Will be deducted from your balance (€${currentUser.balance.toFixed(2)})`;
+      hint.className = 'pro-pricing-hint';
+    }
+  }
+
+  function doUpgrade() {
+    if (!confirm('Upgrade to MatchBook PRO for €5.00?\n\nYou\'ll get 5 free boosts and skip all buyer fees for a year.')) return;
+    const result = DB.upgradeToPro(currentUser.id);
+    if (result.error) {
+      toast(result.error, 'error');
+      return;
+    }
+    currentUser = result.user;
+    toast('🎉 Welcome to MatchBook PRO!', 'success', 3500);
+    // Rebuild the nav so the avatar dropdown flips to the PRO state.
+    buildNav();
+    renderUpgradeArea();
+  }
+</script>
+</body>
+</html>
