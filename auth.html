@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MatchBook — Sign In / Register</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="auth-page">
+  <!-- LEFT PANEL -->
+  <div class="auth-left">
+    <div class="auth-left-content">
+      <a href="index.html" style="display:flex;align-items:center;gap:10px;margin-bottom:48px;text-decoration:none;">
+        <span style="font-size:2rem;">📚</span>
+        <span style="font-family:var(--font-display);font-size:1.5rem;color:#fff;font-weight:700;">MatchBook</span>
+      </a>
+      <h1 class="auth-hero-title">
+        Italy's textbook<br>trading platform<br>for high schoolers
+      </h1>
+      <p class="auth-hero-sub">
+        Connect with students at your school, secure every deal with escrow, and never overpay for a textbook again.
+      </p>
+      <div class="auth-features">
+        <div class="auth-feature">
+          <span class="auth-feature-icon">🏫</span>
+          <span class="auth-feature-text">Your school's listings come first</span>
+        </div>
+        <div class="auth-feature">
+          <span class="auth-feature-icon">🔒</span>
+          <span class="auth-feature-text">30% escrow deposit protects every trade</span>
+        </div>
+        <div class="auth-feature">
+          <span class="auth-feature-icon">💬</span>
+          <span class="auth-feature-text">Smart chat helps you negotiate & meet up</span>
+        </div>
+        <div class="auth-feature">
+          <span class="auth-feature-icon">✅</span>
+          <span class="auth-feature-text">Trusted sellers, accountable community</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="auth-right">
+    <div class="auth-box">
+      <div class="auth-tabs">
+        <button class="auth-tab" id="tabLogin" onclick="switchTab('login')">Sign in</button>
+        <button class="auth-tab" id="tabRegister" onclick="switchTab('register')">Create account</button>
+      </div>
+
+      <!-- LOGIN PANEL -->
+      <div class="auth-panel" id="panelLogin">
+        <div class="form-group">
+          <label class="form-label">Email address</label>
+          <input class="form-input" type="email" id="loginEmail" placeholder="you@example.it" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input class="form-input" type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <div id="loginError" class="form-error" style="margin-bottom:12px;"></div>
+        <button class="btn btn-primary btn-full" onclick="handleLogin()">Sign in</button>
+        <div style="margin-top:16px;text-align:center;font-size:.85rem;color:var(--ink-3);">
+          Demo buyer: <code>buyer@demo.it</code> / <code>demo1234</code><br>
+          Demo seller: <code>seller@demo.it</code> / <code>demo1234</code>
+        </div>
+      </div>
+
+      <!-- REGISTER PANEL -->
+      <div class="auth-panel" id="panelRegister">
+        <!-- Step 1: Role selection -->
+        <div id="stepRole">
+          <p style="font-size:.9rem;color:var(--ink-3);margin-bottom:20px;">
+            Choose your role carefully — it cannot be changed later. Buyers browse and purchase; Sellers list and sell.
+          </p>
+          <div class="role-selector">
+            <div class="role-card" id="roleBuyer" onclick="selectRole('buyer')">
+              <div class="role-card-icon">🛒</div>
+              <div class="role-card-title">Buyer</div>
+              <div class="role-card-desc">I want to find and buy used textbooks at a good price.</div>
+            </div>
+            <div class="role-card" id="roleSeller" onclick="selectRole('seller')">
+              <div class="role-card-icon">📦</div>
+              <div class="role-card-title">Seller</div>
+              <div class="role-card-desc">I want to sell textbooks I no longer need.</div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-full" onclick="goToStep2()" id="btnNextStep" disabled>Continue →</button>
+        </div>
+
+        <!-- Step 2: Account details -->
+        <div id="stepDetails" style="display:none;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px;">
+            <button class="btn btn-ghost btn-sm" onclick="goToStep1()">← Back</button>
+            <span id="selectedRoleBadge"></span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Full name</label>
+            <input class="form-input" type="text" id="regName" placeholder="Mario Rossi" autocomplete="name">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input class="form-input" type="email" id="regEmail" placeholder="mario@example.it" autocomplete="email">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <input class="form-input" type="password" id="regPassword" placeholder="min 6 chars" autocomplete="new-password">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Your school</label>
+            <select class="form-select" id="regSchool"></select>
+            <div class="form-hint">This determines your listing priority on the platform.</div>
+          </div>
+          <div id="regError" class="form-error" style="margin-bottom:12px;"></div>
+          <button class="btn btn-primary btn-full" onclick="handleRegister()">Create account</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+  let selectedRole = null;
+
+  function switchTab(tab) {
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+    document.getElementById('panel' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+  }
+
+  function selectRole(role) {
+    selectedRole = role;
+    document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('role' + role.charAt(0).toUpperCase() + role.slice(1)).classList.add('selected');
+    document.getElementById('btnNextStep').disabled = false;
+  }
+
+  function goToStep2() {
+    if (!selectedRole) return;
+    document.getElementById('stepRole').style.display = 'none';
+    document.getElementById('stepDetails').style.display = 'block';
+    const badge = document.getElementById('selectedRoleBadge');
+    badge.innerHTML = `<span class="badge ${selectedRole === 'buyer' ? 'badge-info' : 'badge-warning'}">${selectedRole === 'buyer' ? '🛒 Buyer' : '📦 Seller'}</span>`;
+    // Build school select
+    const sel = document.getElementById('regSchool');
+    buildSchoolSelect(sel);
+  }
+
+  function goToStep1() {
+    document.getElementById('stepDetails').style.display = 'none';
+    document.getElementById('stepRole').style.display = 'block';
+  }
+
+  function handleLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const pass = document.getElementById('loginPassword').value;
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = '';
+    if (!email || !pass) { errEl.textContent = 'Please fill in all fields.'; return; }
+    const user = DB.getUserByEmail(email);
+    if (!user || user.password !== pass) { errEl.textContent = 'Invalid email or password.'; return; }
+    if (!user.active) { errEl.textContent = 'This account has been suspended.'; return; }
+    DB.setSession(user);
+    toast('Welcome back, ' + user.name.split(' ')[0] + '!', 'success');
+    const params = new URLSearchParams(location.search);
+    setTimeout(() => { location.href = params.get('next') || 'index.html'; }, 600);
+  }
+
+  function handleRegister() {
+    const name = document.getElementById('regName').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
+    const password = document.getElementById('regPassword').value;
+    const schoolId = document.getElementById('regSchool').value;
+    const errEl = document.getElementById('regError');
+    errEl.textContent = '';
+    if (!name || !email || !password || !schoolId || !selectedRole) {
+      errEl.textContent = 'Please fill in all fields.'; return;
+    }
+    if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
+    const result = DB.createUser({ name, email, password, role: selectedRole, schoolId });
+    if (result.error) { errEl.textContent = result.error; return; }
+    DB.setSession(result.user);
+    toast('Account created! Welcome, ' + name.split(' ')[0] + ' 🎉', 'success');
+    setTimeout(() => { location.href = selectedRole === 'seller' ? 'announcements.html' : 'announcements.html'; }, 700);
+  }
+
+  // Init
+  document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab') || 'login';
+    switchTab(tab);
+    // If already logged in, redirect
+    if (DB.currentUser()) location.href = 'index.html';
+  });
+</script>
+</body>
+</html>

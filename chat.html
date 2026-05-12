@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MatchBook — Messages</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { overflow: hidden; }
+    .chat-outer { height: calc(100vh - var(--nav-h)); margin-top: var(--nav-h); display: flex; flex-direction: column; }
+    .chat-layout { flex: 1; overflow: hidden; border-radius: 0; border: none; border-top: 1px solid var(--border); margin: 0; }
+  </style>
+</head>
+<body>
+<nav class="mb-nav"></nav>
+
+<div class="chat-outer">
+  <div class="chat-layout">
+
+    <!-- CONVERSATION LIST -->
+    <div class="conv-list scrollbar-thin" id="convList">
+      <div class="conv-list-header">
+        💬 Messages
+        <button class="btn btn-ghost btn-sm" onclick="location.href='announcements.html'" style="float:right;margin-top:-4px;">Browse →</button>
+      </div>
+      <div id="convItems"></div>
+    </div>
+
+    <!-- CHAT AREA -->
+    <div class="chat-area" id="chatArea">
+      <div class="empty-chat" id="emptyChatState">
+        <div class="empty-chat-icon">💬</div>
+        <h3 style="font-family:var(--font-display);margin-bottom:8px;">Select a conversation</h3>
+        <p style="color:var(--ink-3);font-size:.9rem;">Or browse listings to start chatting with a seller.</p>
+        <a href="announcements.html" class="btn btn-primary" style="margin-top:20px;">Browse listings</a>
+      </div>
+      <div id="activeChat" style="display:none;height:100%;flex-direction:column;display:none;">
+        <div class="chat-header" id="chatHeader"></div>
+        <div class="chat-messages scrollbar-thin" id="chatMessages"></div>
+        <div class="chat-input-bar">
+          <textarea class="form-input" id="chatInput" placeholder="Type a message…" rows="1" onkeydown="handleKey(event)"></textarea>
+          <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+let currentUser = null;
+let activeConvId = null;
+let botTyping = false;
+
+// ── BOT ENGINE ────────────────────────────────────────────────────────────────
+
+const BOT_DELAYS = { think: [800, 1500], type: [1200, 2500] };
+
+const PRICE_PATTERNS = [
+  /\b(price|cost|how much|€|euro|euros|budget|cheap|expensive|discount|lower|negotiate|offer|deal|pay)\b/i,
+  /\d+\s*€|€\s*\d+/,
+  /\b\d+(\.\d{2})?\s*(euro|euros|bucks)?\b/,
+];
+
+const MEETING_PATTERNS = [
+  /\b(meet|meeting|tomorrow|today|when|where|time|location|place|school|cafeteria|pickup|pick up|come by|available|schedule|arrange|appoint)\b/i,
+  /\b(morning|afternoon|evening|monday|tuesday|wednesday|thursday|friday|lun|mar|mer|gio|ven)\b/i,
+];
+
+const CONDITION_PATTERNS = [
+  /\b(condition|damage|tear|stain|note|notes|mark|marks|used|pen|pencil|highlight|write|wrote|old|new)\b/i,
+];
+
+const GREETING_PATTERNS = [
+  /\b(hi|hello|hey|ciao|salve|buongiorno|buonasera|good morning|good evening|howdy)\b/i,
+];
+
+function detectIntent(text) {
+  if (GREETING_PATTERNS.some(p => p.test(text))) return 'greeting';
+  if (PRICE_PATTERNS.some(p => p.test(text))) return 'price';
+  if (MEETING_PATTERNS.some(p => p.test(text))) return 'meeting';
+  if (CONDITION_PATTERNS.some(p => p.test(text))) return 'condition';
+  return 'general';
+}
+
+function extractPrice(text) {
+  const m = text.match(/€?\s*(\d+(?:[.,]\d{1,2})?)\s*€?/);
+  return m ? parseFloat(m[1].replace(',', '.')) : null;
+}
+
+function getBotResponse(intent, userText, botRole, listing) {
+  const listingPrice = listing ? listing.price : null;
+  const bookTitle = listing ? listing.bookTitle : 'the book';
+
+  const responses = {
+    greeting: {
+      buyer: [
+        `Hi there! 👋 I'm interested in "${bookTitle}". Is it still available?`,
+        `Hello! I saw your listing for "${bookTitle}" — can you tell me more about it?`,
+        `Hey! Looking to buy "${bookTitle}". How soon can you meet?`,
+      ],
+      seller: [
+        `Hi! Thanks for your interest in "${bookTitle}". It's still available! 😊`,
+        `Hello! Yes, "${bookTitle}" is available. What would you like to know?`,
+        `Hey there! Great that you're interested. The book is in ${listing?.condition?.replace('_',' ') || 'good'} condition.`,
+      ],
+    },
+    price: {
+      buyer: (() => {
+        const offeredPrice = extractPrice(userText);
+        if (offeredPrice && listingPrice) {
+          if (offeredPrice < listingPrice * 0.75) return [
+            `Hmm, ${formatPrice(offeredPrice)} is a bit low for me. I was thinking closer to ${formatPrice(listingPrice * 0.85)}. Can we meet somewhere in between?`,
+            `I appreciate the offer, but ${formatPrice(offeredPrice)} doesn't quite work. How about ${formatPrice(Math.round(listingPrice * 0.88 * 2)/2)}?`,
+          ];
+          if (offeredPrice < listingPrice) return [
+            `That's a fair offer! I could do ${formatPrice(offeredPrice + 1)} — does that work?`,
+            `I could consider ${formatPrice(offeredPrice + 0.50)} to cover shipping. Deal?`,
+          ];
+          return [
+            `${formatPrice(offeredPrice)} works for me! Let's arrange the handover. 🤝`,
+            `Deal at ${formatPrice(offeredPrice)}! When can you come pick it up?`,
+          ];
+        }
+        return [
+          `The asking price is ${listingPrice ? formatPrice(listingPrice) : 'listed on the page'}. That's already a fair price for the condition, but I'm open to a small negotiation.`,
+          `I listed it at ${listingPrice ? formatPrice(listingPrice) : 'the listed price'}. What were you thinking?`,
+        ];
+      })(),
+      seller: (() => {
+        const offeredPrice = extractPrice(userText);
+        if (offeredPrice && listingPrice) {
+          if (offeredPrice < listingPrice * 0.80) return [
+            `That's below what I was hoping for. The book is in great shape — I'd do ${formatPrice(listingPrice * 0.90)} at most.`,
+            `I can't go that low, sorry. My best offer is ${formatPrice(listingPrice * 0.92)}.`,
+          ];
+          return [
+            `I can work with ${formatPrice(offeredPrice)}! Want to set up a pickup? 📦`,
+            `${formatPrice(offeredPrice)} is fine! Just pay the 30% deposit on the platform and we're good to go.`,
+          ];
+        }
+        return [
+          `My budget is around ${formatPrice(listingPrice ? listingPrice * 0.9 : 15)}. Is there any flexibility?`,
+          `Could you do ${formatPrice(listingPrice ? listingPrice * 0.85 : 12)}? That's all I can manage right now.`,
+        ];
+      })(),
+    },
+    meeting: {
+      buyer: [
+        `I'm usually free before school — say 8:15 AM near the main entrance? 🕗`,
+        `What about tomorrow at lunch, near the library? That way we both don't miss class.`,
+        `I can meet after school on Friday, around 2:30 PM. Does that work for you?`,
+        `I'm flexible this week! What day works best for you?`,
+      ],
+      seller: [
+        `I can meet tomorrow morning at 8:15 before class! Sound good?`,
+        `How about Friday after school near the main gate? That works for me.`,
+        `Let's say Wednesday at lunch — I'll be at the cafeteria entrance. 🍔`,
+        `I'm free most days this week. What time suits you?`,
+      ],
+    },
+    condition: {
+      buyer: [
+        `The book is in ${listing?.condition?.replace('_',' ') || 'good'} condition. ${listing?.description || 'No major damage.'}`,
+        `I used it for one year. There are a few pencil notes in the margins but nothing too distracting.`,
+        `It's clean — no stains or torn pages. Just normal wear from use.`,
+      ],
+      seller: [
+        `Could you describe the condition more? Any highlighting or notes inside?`,
+        `Is there any damage I should know about before buying?`,
+        `How many school years was it used?`,
+      ],
+    },
+    general: {
+      buyer: [
+        `Sounds good! Anything else you want to know? 😊`,
+        `Got it! Let me know if you want to arrange the pickup.`,
+        `Sure, happy to help. What else can I tell you?`,
+      ],
+      seller: [
+        `Interesting! I'm happy to answer any questions.`,
+        `Let me know if you need more details about the book.`,
+        `Happy to chat! Is there anything specific you'd like to know?`,
+      ],
+    },
+  };
+
+  const pool = responses[intent]?.[botRole] || responses.general[botRole];
+  return Array.isArray(pool) ? pool[Math.floor(Math.random() * pool.length)] : pool;
+}
+
+// ── CONVERSATION RENDERING ─────────────────────────────────────────────────────
+
+function renderConvList() {
+  const convs = DB.getConversationsForUser(currentUser.id);
+  const container = document.getElementById('convItems');
+
+  if (convs.length === 0) {
+    container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--ink-3);font-size:.85rem;">No conversations yet.<br><a href="announcements.html" style="color:var(--accent);">Browse listings →</a></div>`;
+    return;
+  }
+
+  container.innerHTML = convs.map(c => {
+    const otherId = c.buyerId === currentUser.id ? c.sellerId : c.buyerId;
+    const other = DB.getUserById(otherId);
+    const listing = DB.getListingById(c.listingId);
+    const lastMsg = c.messages[c.messages.length - 1];
+    const isActive = c.id === activeConvId;
+    return `
+      <div class="conv-item ${isActive ? 'active' : ''}" onclick="openConversation('${c.id}')">
+        <div class="conv-avatar">${other?.name?.[0]?.toUpperCase() || '?'}</div>
+        <div class="conv-info">
+          <div class="conv-name">${escHtml(other?.name || 'Unknown')}</div>
+          <div class="conv-preview">${listing ? escHtml(listing.bookTitle) : 'Book'}</div>
+          ${lastMsg ? `<div class="conv-preview" style="margin-top:2px;">${lastMsg.senderId === currentUser.id ? 'You: ' : ''}${escHtml(lastMsg.text.slice(0,40))}…</div>` : ''}
+        </div>
+        <div class="conv-time">${lastMsg ? formatRelativeTime(lastMsg.ts) : ''}</div>
+      </div>`;
+  }).join('');
+}
+
+function formatRelativeTime(ts) {
+  const diff = Date.now() - ts;
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return Math.floor(diff / 60000) + 'm';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + 'h';
+  return formatDate(ts);
+}
+
+function openConversation(convId) {
+  activeConvId = convId;
+  const conv = DB.getConversation(convId);
+  if (!conv) return;
+
+  const otherId = conv.buyerId === currentUser.id ? conv.sellerId : conv.buyerId;
+  const other = DB.getUserById(otherId);
+  const listing = DB.getListingById(conv.listingId);
+
+  // Header
+  const header = document.getElementById('chatHeader');
+  header.innerHTML = `
+    <div class="conv-avatar">${other?.name?.[0]?.toUpperCase() || '?'}</div>
+    <div class="chat-header-info">
+      <div class="chat-header-name">${escHtml(other?.name || 'Unknown')}</div>
+      <div class="chat-header-sub">${listing ? escHtml(listing.bookTitle) + ' · ' + formatPrice(listing.price) : ''}</div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px;">
+      ${currentUser.role === 'buyer' && listing ? `<button class="btn btn-primary btn-sm" onclick="quickBuy('${listing.id}','${otherId}')">🔒 Reserve book</button>` : ''}
+    </div>`;
+
+  document.getElementById('emptyChatState').style.display = 'none';
+  const activeChat = document.getElementById('activeChat');
+  activeChat.style.display = 'flex';
+  activeChat.style.flexDirection = 'column';
+
+  renderMessages(conv);
+  renderConvList(); // update active state
+}
+
+function renderMessages(conv) {
+  const container = document.getElementById('chatMessages');
+  if (!conv || conv.messages.length === 0) {
+    container.innerHTML = `<div style="text-align:center;color:var(--ink-3);font-size:.85rem;padding:24px;">Start the conversation! Say hi 👋</div>`;
+    return;
+  }
+  container.innerHTML = conv.messages.map(m => {
+    const isMe = m.senderId === currentUser.id;
+    const isBot = m.senderId === 'bot';
+    return `
+      <div class="msg ${isMe ? 'mine' : isBot ? 'msg-bot' : ''}">
+        ${!isMe ? `<div class="msg-avatar">${isBot ? '🤖' : '?'}</div>` : ''}
+        <div>
+          <div class="msg-bubble">${escHtml(m.text)}</div>
+          <div class="msg-time">${formatRelativeTime(m.ts)}</div>
+        </div>
+        ${isMe ? `<div class="msg-avatar" style="background:var(--accent);">${currentUser.name[0]}</div>` : ''}
+      </div>`;
+  }).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTyping() {
+  const container = document.getElementById('chatMessages');
+  const el = document.createElement('div');
+  el.id = 'typingIndicator';
+  el.className = 'msg msg-bot typing-indicator';
+  el.innerHTML = `<div class="msg-avatar">🤖</div><div class="msg-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
+}
+
+function hideTyping() {
+  document.getElementById('typingIndicator')?.remove();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function sendMessage() {
+  if (!activeConvId || botTyping) return;
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  // Save user message
+  const msg = DB.addMessage(activeConvId, currentUser.id, text);
+  input.value = '';
+  renderMessages(DB.getConversation(activeConvId));
+  renderConvList();
+
+  // Trigger bot response
+  triggerBot(text);
+}
+
+function triggerBot(userText) {
+  if (!activeConvId) return;
+  const conv = DB.getConversation(activeConvId);
+  if (!conv) return;
+
+  const listing = DB.getListingById(conv.listingId);
+  // Bot plays the OPPOSITE role of currentUser
+  const botRole = currentUser.role === 'buyer' ? 'seller' : 'buyer';
+  const intent = detectIntent(userText);
+
+  botTyping = true;
+  const thinkDelay = BOT_DELAYS.think[0] + Math.random() * (BOT_DELAYS.think[1] - BOT_DELAYS.think[0]);
+  const typeDelay = BOT_DELAYS.type[0] + Math.random() * (BOT_DELAYS.type[1] - BOT_DELAYS.type[0]);
+
+  setTimeout(() => {
+    showTyping();
+    setTimeout(() => {
+      hideTyping();
+      const responseText = getBotResponse(intent, userText, botRole, listing);
+      DB.addMessage(activeConvId, 'bot', responseText);
+      const updatedConv = DB.getConversation(activeConvId);
+      renderMessages(updatedConv);
+      renderConvList();
+      botTyping = false;
+
+      // If price intent and meeting hasn't been proposed, follow up
+      if (intent === 'price' && !conv.meetingProposed) {
+        setTimeout(() => {
+          const followUp = botRole === 'seller'
+            ? "Once we agree on price, I'll need you to pay the 30% deposit on the platform to reserve the book. 🔒"
+            : "If we agree, could we meet near school? Easier to check the book in person.";
+          DB.addMessage(activeConvId, 'bot', followUp);
+          renderMessages(DB.getConversation(activeConvId));
+          botTyping = false;
+        }, 2000);
+      }
+    }, typeDelay);
+  }, thinkDelay);
+}
+
+function quickBuy(listingId, sellerId) {
+  const listing = DB.getListingById(listingId);
+  if (!listing || listing.status !== 'active') { toast('This listing is no longer available', 'warning'); return; }
+  const txn = DB.createTransaction(currentUser.id, sellerId, listingId);
+  toast('Transaction created! Redirecting to pay deposit…', 'success', 3000);
+  setTimeout(() => location.href = 'transactions.html', 1500);
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  currentUser = DB.currentUser();
+  if (!currentUser) { location.href = 'auth.html?next=chat.html'; return; }
+
+  renderConvList();
+
+  // Auto-open if ?conv= param
+  const params = new URLSearchParams(location.search);
+  const convParam = params.get('conv');
+  if (convParam) {
+    setTimeout(() => openConversation(convParam), 100);
+  }
+});
+</script>
+</body>
+</html>

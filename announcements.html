@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MatchBook — Browse Listings</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="mb-nav"></nav>
+
+<main class="page-body">
+<div class="container">
+
+  <!-- BUYER VIEW -->
+  <div id="buyerView">
+    <div class="page-header">
+      <h1>Find your books</h1>
+      <p id="schoolContext"></p>
+    </div>
+
+    <div class="announcements-layout">
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div class="sidebar-card">
+          <div class="sidebar-title">Sort by</div>
+          <div class="sort-btns">
+            <button class="sort-btn active" id="sortProximity" onclick="setSort('proximity')">📍 Proximity</button>
+            <button class="sort-btn" id="sortPrice" onclick="setSort('price')">💰 Price</button>
+          </div>
+        </div>
+        <div class="sidebar-card">
+          <div class="sidebar-title">Filters</div>
+          <div class="filter-group">
+            <label class="toggle-switch">
+              <input class="toggle-input" type="checkbox" id="toggleOtherCities" onchange="renderListings()">
+              <span class="toggle-track"></span>
+              Show other cities
+            </label>
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">Subject</label>
+            <select class="form-select" id="filterSubject" onchange="renderListings()">
+              <option value="">All subjects</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">Max price</label>
+            <input class="form-input" type="number" id="filterMaxPrice" placeholder="e.g. 20" min="0" onchange="renderListings()" style="padding:8px 12px;">
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">Condition</label>
+            <select class="form-select" id="filterCondition" onchange="renderListings()">
+              <option value="">Any condition</option>
+              <option value="new">New</option>
+              <option value="like_new">Like New</option>
+              <option value="good">Good</option>
+              <option value="fair">Fair</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost btn-full" onclick="clearFilters()" style="margin-top:4px;">Clear filters</button>
+        </div>
+        <div class="sidebar-card" style="background:var(--accent-light);border-color:var(--accent);">
+          <div style="font-size:.8rem;font-weight:600;color:var(--accent);margin-bottom:8px;">📌 Priority Legend</div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:.8rem;">
+            <div style="display:flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:2px;background:var(--accent);display:inline-block;"></span> Same school</div>
+            <div style="display:flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:2px;background:var(--blue);display:inline-block;"></span> Same city</div>
+            <div style="display:flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:2px;background:var(--border-dark);display:inline-block;"></span> Other city</div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- LISTINGS -->
+      <section class="listings-main">
+        <div class="listings-header">
+          <span class="listings-count" id="listingsCount"></span>
+          <button class="btn btn-secondary btn-sm" onclick="renderListings()">🔄 Refresh</button>
+        </div>
+        <div class="grid-3" id="listingsGrid"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- SELLER VIEW -->
+  <div id="sellerView" style="display:none;">
+    <div class="page-header">
+      <h1>Your listings</h1>
+      <p>Manage your listings and post new books for sale.</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 340px;gap:32px;align-items:start;">
+      <!-- Listings -->
+      <div>
+        <div id="sellerListings"></div>
+      </div>
+      <!-- Post new -->
+      <div class="sidebar-card seller-form-wrap" style="max-width:100%;position:sticky;top:calc(var(--nav-h) + 24px);">
+        <div style="font-weight:600;margin-bottom:16px;font-family:var(--font-display);">Post a new listing</div>
+        <div class="form-group">
+          <label class="form-label">Book</label>
+          <select class="form-select" id="sellBook" onchange="onBookSelect()">
+            <option value="">Choose a book…</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Price (€)</label>
+            <input class="form-input" type="number" id="sellPrice" placeholder="15.00" min="1" step="0.50">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Condition</label>
+            <select class="form-select" id="sellCondition">
+              <option value="new">New</option>
+              <option value="like_new">Like New</option>
+              <option value="good" selected>Good</option>
+              <option value="fair">Fair</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description (optional)</label>
+          <textarea class="form-textarea" id="sellDescription" placeholder="Any notes about the book's condition…" style="min-height:70px;"></textarea>
+        </div>
+        <div id="sellError" class="form-error" style="margin-bottom:8px;"></div>
+        <button class="btn btn-primary btn-full" onclick="handlePost()">Post listing</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOT LOGGED IN -->
+  <div id="guestView" style="display:none;">
+    <div class="empty-state" style="padding:100px 24px;">
+      <div class="empty-icon">📚</div>
+      <h3>Browse the marketplace</h3>
+      <p style="margin-bottom:24px;">Sign in to see personalized listings from your school.</p>
+      <a href="auth.html" class="btn btn-primary">Sign in to browse</a>
+    </div>
+  </div>
+
+</div>
+</main>
+
+<!-- LISTING DETAIL MODAL -->
+<div class="modal-overlay" id="listingModal">
+  <div class="modal" style="max-width:560px;" id="listingModalContent">
+    <button class="modal-close" data-close-modal="listingModal" onclick="closeModal('listingModal')">✕</button>
+    <div id="listingModalBody"></div>
+  </div>
+</div>
+
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+let currentUser = null;
+let currentSort = 'proximity';
+
+document.addEventListener('DOMContentLoaded', () => {
+  currentUser = DB.currentUser();
+
+  if (!currentUser) {
+    document.getElementById('guestView').style.display = 'block';
+    return;
+  }
+
+  if (currentUser.role === 'buyer') {
+    document.getElementById('buyerView').style.display = 'block';
+    const school = getSchoolById(currentUser.schoolId);
+    document.getElementById('schoolContext').textContent =
+      school ? `Showing books matched to your school: ${school.name}, ${school.city}` : '';
+    populateSubjectFilter();
+    renderListings();
+  } else {
+    document.getElementById('sellerView').style.display = 'block';
+    buildBookSelect();
+    renderSellerListings();
+  }
+});
+
+// ── BUYER ──────────────────────────────────────────────────────────────────────
+
+function setSort(s) {
+  currentSort = s;
+  document.getElementById('sortProximity').classList.toggle('active', s === 'proximity');
+  document.getElementById('sortPrice').classList.toggle('active', s === 'price');
+  renderListings();
+}
+
+function populateSubjectFilter() {
+  const listings = DB.getListings();
+  const subjects = [...new Set(listings.map(l => l.subject).filter(Boolean))].sort();
+  const sel = document.getElementById('filterSubject');
+  subjects.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s; o.textContent = s;
+    sel.appendChild(o);
+  });
+}
+
+function clearFilters() {
+  document.getElementById('filterSubject').value = '';
+  document.getElementById('filterMaxPrice').value = '';
+  document.getElementById('filterCondition').value = '';
+  document.getElementById('toggleOtherCities').checked = false;
+  renderListings();
+}
+
+function renderListings() {
+  const grid = document.getElementById('listingsGrid');
+  const showOther = document.getElementById('toggleOtherCities').checked;
+  const subjectFilter = document.getElementById('filterSubject').value;
+  const maxPrice = parseFloat(document.getElementById('filterMaxPrice').value) || Infinity;
+  const condFilter = document.getElementById('filterCondition').value;
+
+  let listings = showOther
+    ? DB.toggleOtherCities(currentUser.schoolId, currentSort)
+    : DB.getMatchedListings(currentUser.schoolId, currentSort);
+
+  if (subjectFilter) listings = listings.filter(l => l.subject === subjectFilter);
+  if (maxPrice < Infinity) listings = listings.filter(l => l.price <= maxPrice);
+  if (condFilter) listings = listings.filter(l => l.condition === condFilter);
+
+  document.getElementById('listingsCount').textContent = `${listings.length} listing${listings.length !== 1 ? 's' : ''} found`;
+
+  if (listings.length === 0) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1;padding:60px 24px;">
+        <div class="empty-icon">🔍</div>
+        <h3>No listings found</h3>
+        <p>Try adjusting your filters or enable other cities.</p>
+      </div>`;
+    return;
+  }
+
+  const BOOK_ICONS = { 'Mathematics': '🔢', 'Italian Literature': '📖', 'Physics': '⚡', 'Biology': '🧬', 'Chemistry': '⚗️', 'History': '🏛️', 'Latin': '🏺', 'English': '🌐', 'Philosophy': '💭', 'Art History': '🎨', 'Economics': '📊', 'Computer Science': '💻' };
+
+  grid.innerHTML = listings.map(l => {
+    const seller = DB.getUserById(l.sellerId);
+    const pClass = l._priority === 1 ? 'same-school' : l._priority === 2 ? 'same-city' : '';
+    const pLabel = l._priority === 1 ? `<span class="priority-label p1">📍 Your school</span>` :
+                   l._priority === 2 ? `<span class="priority-label p2">🏙️ Your city</span>` :
+                   `<span class="priority-label p3">🗺️ ${l._sellerSchool?.city || 'Other'}</span>`;
+    const icon = BOOK_ICONS[l.subject] || '📚';
+    return `
+      <div class="listing-card ${pClass} animate-in" onclick="openListingDetail('${l.id}')">
+        <div class="listing-card-cover">
+          <span>${icon}</span>
+          <div class="listing-card-priority">${pLabel}</div>
+        </div>
+        <div class="listing-card-body">
+          <div class="listing-card-title">${escHtml(l.bookTitle)}</div>
+          <div class="listing-card-author">${escHtml(l.bookAuthor || '')}</div>
+          <div style="margin-top:4px;">${conditionBadge(l.condition)}</div>
+        </div>
+        <div class="listing-card-footer">
+          <div class="listing-price">${formatPrice(l.price)}</div>
+          <div class="listing-school">🏫 ${escHtml(l._sellerSchool?.name?.split(' ').slice(-2).join(' ') || '')}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function openListingDetail(id) {
+  const l = DB.getListingById(id);
+  if (!l) return;
+  const seller = DB.getUserById(l.sellerId);
+  const school = getSchoolById(l.schoolId);
+  const deposit = (l.price * 0.30).toFixed(2);
+  const remainder = (l.price * 0.70).toFixed(2);
+
+  const body = document.getElementById('listingModalBody');
+  body.innerHTML = `
+    <h3 class="modal-title">${escHtml(l.bookTitle)}</h3>
+    <div class="listing-detail">
+      <div class="listing-detail-cover" style="font-size:4rem;">📚</div>
+      <div class="listing-detail-info">
+        <div class="info-row">
+          <span class="info-label">Author</span>
+          <span class="info-value">${escHtml(l.bookAuthor || '—')}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Subject</span>
+          <span class="info-value">${escHtml(l.subject || '—')}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Condition</span>
+          <span class="info-value">${conditionBadge(l.condition)}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Seller</span>
+          <span class="info-value">${escHtml(seller?.name || 'Unknown')}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">School</span>
+          <span class="info-value">${escHtml(school?.name || '—')}</span>
+        </div>
+        ${l.description ? `<div class="info-row"><span class="info-label">Notes</span><span class="info-value">${escHtml(l.description)}</span></div>` : ''}
+      </div>
+    </div>
+    <div class="price-breakdown">
+      <div class="price-row"><span>Book price</span><span>${formatPrice(l.price)}</span></div>
+      <div class="price-row"><span>Deposit (30% — paid online)</span><span style="color:var(--accent);">€${deposit}</span></div>
+      <div class="price-row"><span>Remainder (70% — paid in person)</span><span>€${remainder}</span></div>
+      <div class="price-row total"><span>Total</span><span>${formatPrice(l.price)}</span></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="initiateTransaction('${l.id}','${l.sellerId}')">🔒 Reserve — Pay €${deposit} deposit</button>
+      <button class="btn btn-secondary" onclick="openChat('${l.sellerId}','${l.id}')">💬 Message seller</button>
+    </div>
+  `;
+  openModal('listingModal');
+}
+
+function initiateTransaction(listingId, sellerId) {
+  if (!currentUser) return;
+  const listing = DB.getListingById(listingId);
+  if (!listing) return;
+  if (listing.status !== 'active') { toast('This listing is no longer available', 'warning'); return; }
+  if (listing.sellerId === currentUser.id) { toast("You can't buy your own listing", 'error'); return; }
+
+  const txn = DB.createTransaction(currentUser.id, sellerId, listingId);
+  if (!txn) { toast('Could not create transaction', 'error'); return; }
+
+  closeModal('listingModal');
+  toast('Transaction created! Go to Transactions to pay your deposit.', 'success', 4000);
+  setTimeout(() => { location.href = 'transactions.html'; }, 1500);
+}
+
+function openChat(sellerId, listingId) {
+  const conv = DB.createConversation(currentUser.id, sellerId, listingId);
+  closeModal('listingModal');
+  location.href = 'chat.html?conv=' + conv.id;
+}
+
+// ── SELLER ─────────────────────────────────────────────────────────────────────
+
+function buildBookSelect() {
+  const sel = document.getElementById('sellBook');
+  sel.innerHTML = '<option value="">Choose a book…</option>';
+  BOOKS_DB.forEach(b => {
+    const o = document.createElement('option');
+    o.value = b.isbn;
+    o.dataset.title = b.title;
+    o.dataset.author = b.author;
+    o.dataset.subject = b.subject;
+    o.textContent = b.title;
+    sel.appendChild(o);
+  });
+}
+
+function onBookSelect() {}
+
+function handlePost() {
+  const isbn = document.getElementById('sellBook').value;
+  const price = document.getElementById('sellPrice').value;
+  const condition = document.getElementById('sellCondition').value;
+  const description = document.getElementById('sellDescription').value.trim();
+  const errEl = document.getElementById('sellError');
+  errEl.textContent = '';
+
+  if (!isbn || !price) { errEl.textContent = 'Please select a book and set a price.'; return; }
+  if (parseFloat(price) <= 0) { errEl.textContent = 'Price must be positive.'; return; }
+
+  const sel = document.getElementById('sellBook');
+  const opt = sel.querySelector(`option[value="${isbn}"]`);
+
+  DB.createListing({
+    sellerId: currentUser.id,
+    schoolId: currentUser.schoolId,
+    isbn,
+    bookTitle: opt.dataset.title,
+    bookAuthor: opt.dataset.author,
+    subject: opt.dataset.subject,
+    condition, price: parseFloat(price), description,
+  });
+
+  // Reset form
+  document.getElementById('sellBook').value = '';
+  document.getElementById('sellPrice').value = '';
+  document.getElementById('sellCondition').value = 'good';
+  document.getElementById('sellDescription').value = '';
+
+  toast('Listing posted! ✅', 'success');
+  renderSellerListings();
+}
+
+function renderSellerListings() {
+  const container = document.getElementById('sellerListings');
+  const listings = DB.getListings().filter(l => l.sellerId === currentUser.id);
+
+  if (listings.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📦</div>
+        <h3>No listings yet</h3>
+        <p>Post your first book using the form →</p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = listings.map(l => `
+    <div class="txn-card animate-in">
+      <div class="txn-header">
+        <div>
+          <div class="txn-title">${escHtml(l.bookTitle)}</div>
+          <div class="txn-id">${l.isbn}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${conditionBadge(l.condition)}
+          ${l.status === 'active' ? '<span class="badge badge-success">Active</span>' : l.status === 'reserved' ? '<span class="badge badge-warning">Reserved</span>' : '<span class="badge badge-muted">Sold</span>'}
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-family:var(--font-display);font-size:1.2rem;color:var(--accent);font-weight:700;">${formatPrice(l.price)}</div>
+        <div style="font-size:.8rem;color:var(--ink-3);">Posted ${formatDate(l.createdAt)}</div>
+      </div>
+      ${l.description ? `<div class="text-muted text-sm" style="margin-top:8px;">${escHtml(l.description)}</div>` : ''}
+      ${l.status === 'active' ? `<div style="margin-top:12px;"><button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteListing('${l.id}')">Remove listing</button></div>` : ''}
+    </div>
+  `).join('');
+}
+
+function deleteListing(id) {
+  if (!confirm('Remove this listing?')) return;
+  DB.updateListing(id, { status: 'sold' });
+  toast('Listing removed', 'info');
+  renderSellerListings();
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
