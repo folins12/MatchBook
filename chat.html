@@ -9,6 +9,19 @@
     body { overflow: hidden; }
     .chat-outer { height: calc(100vh - var(--nav-h)); margin-top: var(--nav-h); display: flex; flex-direction: column; }
     .chat-layout { flex: 1; overflow: hidden; border-radius: 0; border: none; border-top: 1px solid var(--border); margin: 0; }
+    .chat-role-badge {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: .65rem;
+      font-weight: 700;
+      letter-spacing: .06em;
+      vertical-align: middle;
+      text-transform: uppercase;
+    }
+    .chat-role-badge.chat-role-buyer  { background: var(--blue-light); color: var(--blue); }
+    .chat-role-badge.chat-role-seller { background: var(--gold-light); color: var(--gold); }
   </style>
 </head>
 <body>
@@ -58,6 +71,22 @@ let botTyping = false;
 
 const BOT_DELAYS = { think: [800, 1500], type: [1200, 2500] };
 
+// Intent classification — order matters. Earlier patterns win, so more specific
+// intents (availability, farewell) must be tested before generic ones (meeting, greeting).
+
+const AVAILABILITY_PATTERNS = [
+  /\b(still\s+(available|there|on\s+sale|for\s+sale)|is\s+it\s+(still\s+)?available|in\s+stock|already\s+sold|gone|taken|reserved)\b/i,
+  /\bancora\s+(disponibile|in\s+vendita|c'è|ce\s+l'hai)\b/i,
+];
+
+const FAREWELL_PATTERNS = [
+  /\b(bye|goodbye|see\s+you|see\s+ya|talk\s+later|cya|later|ttyl|gtg|gotta\s+go|ciao\s+ciao|arrivederci|a\s+presto)\b/i,
+];
+
+const THANKS_PATTERNS = [
+  /\b(thanks|thank\s+you|thx|ty|cheers|appreciate|grazie|grazie\s+mille)\b/i,
+];
+
 const PRICE_PATTERNS = [
   /\b(price|cost|how much|€|euro|euros|budget|cheap|expensive|discount|lower|negotiate|offer|deal|pay)\b/i,
   /\d+\s*€|€\s*\d+/,
@@ -65,23 +94,27 @@ const PRICE_PATTERNS = [
 ];
 
 const MEETING_PATTERNS = [
-  /\b(meet|meeting|tomorrow|today|when|where|time|location|place|school|cafeteria|pickup|pick up|come by|available|schedule|arrange|appoint)\b/i,
+  /\b(meet|meeting|tomorrow|today|when|where|time|location|place|school|cafeteria|pickup|pick up|come by|schedule|arrange|appoint)\b/i,
   /\b(morning|afternoon|evening|monday|tuesday|wednesday|thursday|friday|lun|mar|mer|gio|ven)\b/i,
 ];
 
 const CONDITION_PATTERNS = [
-  /\b(condition|damage|tear|stain|note|notes|mark|marks|used|pen|pencil|highlight|write|wrote|old|new)\b/i,
+  /\b(condition|damage|tear|stain|note|notes|mark|marks|used|pen|pencil|highlight|write|wrote|old|new|how is it|what'?s it like|underlining|underlined|annotated)\b/i,
 ];
 
 const GREETING_PATTERNS = [
-  /\b(hi|hello|hey|ciao|salve|buongiorno|buonasera|good morning|good evening|howdy)\b/i,
+  /\b(hi|hello|hey|ciao|salve|buongiorno|buonasera|good morning|good evening|howdy|yo|hiya)\b/i,
 ];
 
 function detectIntent(text) {
-  if (GREETING_PATTERNS.some(p => p.test(text))) return 'greeting';
-  if (PRICE_PATTERNS.some(p => p.test(text))) return 'price';
-  if (MEETING_PATTERNS.some(p => p.test(text))) return 'meeting';
-  if (CONDITION_PATTERNS.some(p => p.test(text))) return 'condition';
+  // Specific intents first — keep this order or "still available" gets eaten by greeting/meeting.
+  if (AVAILABILITY_PATTERNS.some(p => p.test(text))) return 'availability';
+  if (FAREWELL_PATTERNS.some(p => p.test(text)))     return 'farewell';
+  if (THANKS_PATTERNS.some(p => p.test(text)))       return 'thanks';
+  if (PRICE_PATTERNS.some(p => p.test(text)))        return 'price';
+  if (MEETING_PATTERNS.some(p => p.test(text)))      return 'meeting';
+  if (CONDITION_PATTERNS.some(p => p.test(text)))    return 'condition';
+  if (GREETING_PATTERNS.some(p => p.test(text)))     return 'greeting';
   return 'general';
 }
 
@@ -93,96 +126,165 @@ function extractPrice(text) {
 function getBotResponse(intent, userText, botRole, listing) {
   const listingPrice = listing ? listing.price : null;
   const bookTitle = listing ? listing.bookTitle : 'the book';
+  const condStr = listing?.condition?.replace('_', ' ') || 'good';
 
+  // CONVENTION: `buyer` = lines spoken by whoever is buying the book.
+  //             `seller` = lines spoken by whoever is selling it.
+  // `botRole` (set in triggerBot) picks which side the bot is playing in the
+  // CURRENT conversation — the bot always speaks the opposite side of the user.
   const responses = {
-    greeting: {
-      buyer: [
-        `Hi there! 👋 I'm interested in "${bookTitle}". Is it still available?`,
-        `Hello! I saw your listing for "${bookTitle}" — can you tell me more about it?`,
-        `Hey! Looking to buy "${bookTitle}". How soon can you meet?`,
+    // "Hi, is the book still available?" — explicit availability question.
+    // Sellers confirm/explain, buyers don't usually ask themselves but we cover it.
+    availability: {
+      seller: [
+        `Yes, "${bookTitle}" is still available! 📚 Want to know anything specific?`,
+        `Still up for grabs! It's in ${condStr} condition. Interested?`,
+        `Yep, available — I haven't sold it yet. When could you pick it up?`,
+        `Available! I've had a couple of people asking, so let me know if you want to reserve it.`,
       ],
+      buyer: [
+        `Just checking — is the book still up for sale? 🙏`,
+        `Hey, wanted to confirm the listing is still active before I commit.`,
+        `Is "${bookTitle}" still around, or has someone already taken it?`,
+      ],
+    },
+    greeting: {
       seller: [
         `Hi! Thanks for your interest in "${bookTitle}". It's still available! 😊`,
         `Hello! Yes, "${bookTitle}" is available. What would you like to know?`,
-        `Hey there! Great that you're interested. The book is in ${listing?.condition?.replace('_',' ') || 'good'} condition.`,
+        `Hey there! Great that you're interested. The book is in ${condStr} condition.`,
+        `Hi 👋 happy to help — what would you like to know about the book?`,
+      ],
+      buyer: [
+        `Hi there! 👋 I'm interested in "${bookTitle}". Is it still available?`,
+        `Hello! I saw your listing for "${bookTitle}" — can you tell me more about it?`,
+        `Hey! Looking to buy "${bookTitle}". How soon could we meet?`,
+        `Hi! Just stumbled on your listing — quick question about the book if that's ok 🙂`,
       ],
     },
+    // PRICE — totally rewritten. The previous version had buyer/seller swapped,
+    // so the bot would haggle as if it owned the book when it didn't.
     price: {
-      buyer: (() => {
-        const offeredPrice = extractPrice(userText);
-        if (offeredPrice && listingPrice) {
-          if (offeredPrice < listingPrice * 0.75) return [
-            `Hmm, ${formatPrice(offeredPrice)} is a bit low for me. I was thinking closer to ${formatPrice(listingPrice * 0.85)}. Can we meet somewhere in between?`,
-            `I appreciate the offer, but ${formatPrice(offeredPrice)} doesn't quite work. How about ${formatPrice(Math.round(listingPrice * 0.88 * 2)/2)}?`,
+      // Bot is the SELLER. User (buyer) is making them an offer or asking the price.
+      seller: (() => {
+        const offered = extractPrice(userText);
+        if (offered && listingPrice) {
+          if (offered < listingPrice * 0.75) return [
+            `Hmm, ${formatPrice(offered)} is a bit low for the condition. I could go down to ${formatPrice(listingPrice * 0.90)} but not much further.`,
+            `That's below what I was hoping for, sorry. My best is ${formatPrice(listingPrice * 0.92)}.`,
+            `I can't really do ${formatPrice(offered)} — the book is in ${condStr} condition. How about ${formatPrice(listingPrice * 0.88)}?`,
           ];
-          if (offeredPrice < listingPrice) return [
-            `That's a fair offer! I could do ${formatPrice(offeredPrice + 1)} — does that work?`,
-            `I could consider ${formatPrice(offeredPrice + 0.50)} to cover shipping. Deal?`,
+          if (offered < listingPrice) return [
+            `I could do ${formatPrice(offered)}, fair enough 🤝 Want to set up a pickup?`,
+            `${formatPrice(offered)} works for me! Just pay the 30% deposit on the platform and we're set.`,
+            `OK, ${formatPrice(offered)} it is. Where do you go to school? Easier to meet there.`,
           ];
           return [
-            `${formatPrice(offeredPrice)} works for me! Let's arrange the handover. 🤝`,
-            `Deal at ${formatPrice(offeredPrice)}! When can you come pick it up?`,
+            `${formatPrice(offered)} works for me! Let's arrange the handover. 🤝`,
+            `Deal at ${formatPrice(offered)}! When can you come pick it up?`,
           ];
         }
         return [
-          `The asking price is ${listingPrice ? formatPrice(listingPrice) : 'listed on the page'}. That's already a fair price for the condition, but I'm open to a small negotiation.`,
+          `The price is ${listingPrice ? formatPrice(listingPrice) : 'as listed'}. The book is in ${condStr} shape — but I'm open to a small negotiation 🙂`,
           `I listed it at ${listingPrice ? formatPrice(listingPrice) : 'the listed price'}. What were you thinking?`,
+          `Asking ${listingPrice ? formatPrice(listingPrice) : 'the listed price'}. Make me an offer and we'll see!`,
         ];
       })(),
-      seller: (() => {
-        const offeredPrice = extractPrice(userText);
-        if (offeredPrice && listingPrice) {
-          if (offeredPrice < listingPrice * 0.80) return [
-            `That's below what I was hoping for. The book is in great shape — I'd do ${formatPrice(listingPrice * 0.90)} at most.`,
-            `I can't go that low, sorry. My best offer is ${formatPrice(listingPrice * 0.92)}.`,
+      // Bot is the BUYER. User (seller) has named or counter-offered a price.
+      buyer: (() => {
+        const offered = extractPrice(userText);
+        if (offered && listingPrice) {
+          if (offered > listingPrice * 0.95) return [
+            `That's basically full price — any chance you could come down a bit? My budget is around ${formatPrice(listingPrice * 0.85)}.`,
+            `Hmm, that's at the top of my budget. Could you do ${formatPrice(listingPrice * 0.85)}?`,
+          ];
+          if (offered > listingPrice * 0.80) return [
+            `${formatPrice(offered)} works for me! How do we set up the pickup? 🤝`,
+            `OK that's reasonable. Could we round it down to ${formatPrice(Math.floor(offered))}? Otherwise I'm in.`,
           ];
           return [
-            `I can work with ${formatPrice(offeredPrice)}! Want to set up a pickup? 📦`,
-            `${formatPrice(offeredPrice)} is fine! Just pay the 30% deposit on the platform and we're good to go.`,
+            `${formatPrice(offered)} sounds great, deal! 🎉 When can we meet?`,
+            `That's a fair price, count me in. Just need to pay the 30% deposit, right?`,
           ];
         }
         return [
-          `My budget is around ${formatPrice(listingPrice ? listingPrice * 0.9 : 15)}. Is there any flexibility?`,
-          `Could you do ${formatPrice(listingPrice ? listingPrice * 0.85 : 12)}? That's all I can manage right now.`,
+          `What's the lowest you'd go? My budget is around ${formatPrice(listingPrice ? listingPrice * 0.85 : 12)}.`,
+          `Could you do ${formatPrice(listingPrice ? listingPrice * 0.85 : 12)}? That's all I can stretch to right now.`,
+          `Any flexibility on the price? I'd appreciate a small discount 🙏`,
         ];
       })(),
     },
     meeting: {
-      buyer: [
-        `I'm usually free before school — say 8:15 AM near the main entrance? 🕗`,
-        `What about tomorrow at lunch, near the library? That way we both don't miss class.`,
-        `I can meet after school on Friday, around 2:30 PM. Does that work for you?`,
-        `I'm flexible this week! What day works best for you?`,
-      ],
+      // Seller proposes / accepts meetup spots.
       seller: [
-        `I can meet tomorrow morning at 8:15 before class! Sound good?`,
-        `How about Friday after school near the main gate? That works for me.`,
+        `I can meet tomorrow morning at 8:15 before class — sound good?`,
+        `How about Friday after school near the main gate? Works for me.`,
         `Let's say Wednesday at lunch — I'll be at the cafeteria entrance. 🍔`,
         `I'm free most days this week. What time suits you?`,
+        `I usually hang around the courtyard after 4pm — drop by anytime.`,
+      ],
+      // Buyer proposes / asks for meetup spots.
+      buyer: [
+        `I'm usually free before school — say 8:15 AM near the main entrance? 🕗`,
+        `What about tomorrow at lunch, near the library?`,
+        `Could we meet after school on Friday, around 2:30 PM?`,
+        `I'm flexible this week — when works best for you?`,
+        `Could we meet at the school gate? Easier for me, I take the bus.`,
       ],
     },
+    // CONDITION — swapped to fix the original bug.
     condition: {
-      buyer: [
-        `The book is in ${listing?.condition?.replace('_',' ') || 'good'} condition. ${listing?.description || 'No major damage.'}`,
-        `I used it for one year. There are a few pencil notes in the margins but nothing too distracting.`,
-        `It's clean — no stains or torn pages. Just normal wear from use.`,
-      ],
+      // Seller DESCRIBES the book's state.
       seller: [
-        `Could you describe the condition more? Any highlighting or notes inside?`,
-        `Is there any damage I should know about before buying?`,
-        `How many school years was it used?`,
+        `It's in ${condStr} condition. ${listing?.description || 'No major damage to mention.'}`,
+        `Used it for one school year. ${listing?.description ? listing.description : 'A few pencil notes in the margins, nothing too distracting.'}`,
+        `Clean overall — no torn pages or stains. Just normal wear from a year of use.`,
+        `Honestly the book held up well. Cover has a small crease but pages are intact.`,
+      ],
+      // Buyer ASKS about the book's state.
+      buyer: [
+        `Could you tell me a bit more about the condition? Any highlighting or notes inside?`,
+        `Is there any damage I should know about before committing?`,
+        `How many school years did you use it for?`,
+        `Are the pages clean? I really don't like underlined textbooks 😅`,
+      ],
+    },
+    thanks: {
+      seller: [
+        `Anytime! Let me know if you need anything else 🙂`,
+        `Of course — happy to help. Looking forward to closing the deal!`,
+        `No worries! Just ping me when you want to set up the pickup.`,
+      ],
+      buyer: [
+        `Thanks for the quick reply! 🙏`,
+        `Appreciate it — really useful info.`,
+        `Cheers, that clears things up.`,
+      ],
+    },
+    farewell: {
+      seller: [
+        `See you soon — message me when you're ready to meet! 👋`,
+        `Talk later! Don't forget to pay the deposit so I can hold the book for you.`,
+        `Ciao! Let me know how you want to proceed.`,
+      ],
+      buyer: [
+        `Thanks again — I'll get back to you about the meetup soon 👋`,
+        `Talk later! I'll think about it and message you.`,
+        `Ciao, gotta run. I'll confirm later today.`,
       ],
     },
     general: {
-      buyer: [
-        `Sounds good! Anything else you want to know? 😊`,
-        `Got it! Let me know if you want to arrange the pickup.`,
-        `Sure, happy to help. What else can I tell you?`,
-      ],
       seller: [
-        `Interesting! I'm happy to answer any questions.`,
-        `Let me know if you need more details about the book.`,
-        `Happy to chat! Is there anything specific you'd like to know?`,
+        `Sure, happy to help 🙂 anything else you'd like to know?`,
+        `Got it. Let me know if you want to arrange the pickup.`,
+        `Makes sense. Just say the word when you're ready to reserve it.`,
+        `Hmm, not 100% sure what you mean — could you rephrase?`,
+      ],
+      buyer: [
+        `Got it, thanks for the info!`,
+        `Cool. I'll think it over and get back to you.`,
+        `Makes sense — let me check my schedule and I'll confirm.`,
+        `Sorry, didn't quite follow — could you say that again?`,
       ],
     },
   };
@@ -242,10 +344,15 @@ function openConversation(convId) {
 
   // Header
   const header = document.getElementById('chatHeader');
+  const myRoleLabel = iAmBuyer ? 'BUYER' : 'SELLER';
+  const myRoleClass = iAmBuyer ? 'buyer' : 'seller';
   header.innerHTML = `
     <div class="conv-avatar">${other?.name?.[0]?.toUpperCase() || '?'}</div>
     <div class="chat-header-info">
-      <div class="chat-header-name">${escHtml(other?.name || 'Unknown')}</div>
+      <div class="chat-header-name">
+        ${escHtml(other?.name || 'Unknown')}
+        <span class="chat-role-badge chat-role-${myRoleClass}" title="Your role in this conversation">You: ${myRoleLabel}</span>
+      </div>
       <div class="chat-header-sub">${listing ? escHtml(listing.bookTitle) + ' · ' + formatPrice(listing.price) : ''}</div>
     </div>
     <div style="margin-left:auto;display:flex;gap:8px;">

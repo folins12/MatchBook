@@ -261,7 +261,13 @@ function openListingDetail(id) {
   body.innerHTML = `
     <h3 class="modal-title">${escHtml(l.bookTitle)}</h3>
     <div class="listing-detail">
-      <div class="listing-detail-cover" style="font-size:4rem;">📚</div>
+      <div class="listing-detail-cover" style="flex-direction:column;gap:14px;">
+        <span style="font-size:4rem;line-height:1;">📚</span>
+        <div style="text-align:center;">
+          <div style="font-size:.65rem;font-weight:600;color:var(--ink-3);letter-spacing:.08em;text-transform:uppercase;">ISBN</div>
+          <div style="font-family:var(--font-mono);font-size:.85rem;color:var(--ink-2);margin-top:2px;">${escHtml(l.isbn || '—')}</div>
+        </div>
+      </div>
       <div class="listing-detail-info">
         <div class="info-row">
           <span class="info-label">Author</span>
@@ -323,6 +329,13 @@ function initiateTransaction(listingId, sellerId) {
 }
 
 function openChat(sellerId, listingId) {
+  // Whoever clicks this button becomes the BUYER in the conversation. We never
+  // want the same user as both buyer and seller — that'd confuse the bot's role
+  // detection in chat.html (both branches of `iAmBuyer ? 'seller' : 'buyer'` collapse).
+  if (sellerId === currentUser.id) {
+    toast("You can't message yourself about your own listing", 'warning');
+    return;
+  }
   const conv = DB.createConversation(currentUser.id, sellerId, listingId);
   closeModal('listingModal');
   location.href = 'chat.html?conv=' + conv.id;

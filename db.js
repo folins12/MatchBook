@@ -354,6 +354,10 @@ const DB = {
     const txn = {
       id: 'txn_' + Date.now() + Math.random().toString(36).slice(2, 7),
       buyerId, sellerId, listingId,
+      // Snapshot the book title onto the transaction. After a dispute the
+      // listing may be wiped from the listings table; without this snapshot
+      // the buyer's transaction history would just say "Unknown book".
+      bookTitle: listing.bookTitle,
       bookPrice: listing.price,
       buyerFee: fee,
       // totalPrice = book price + buyer fee (this is the buyer's full out-of-pocket).
@@ -406,16 +410,28 @@ const DB = {
     if (idx === -1) return { error: 'Not found' };
     const txn = txns[idx];
     if (txn.status !== 'deposit_paid') return { error: 'Invalid state' };
-    // Refund buyer fully — both deposit AND the buyer fee, since the seller is at fault
+
+    // 1) Refund the buyer fully — both the deposit AND the buyer fee, since
+    //    the seller is at fault. The refund matches what payDeposit debited.
     const buyer = this.getUserById(txn.buyerId);
     const fee = txn.buyerFee || 0;
     const refundAmount = parseFloat((txn.deposit + fee).toFixed(2));
     if (buyer) this.updateUser(txn.buyerId, { balance: parseFloat((buyer.balance + refundAmount).toFixed(2)) });
-    // Penalize seller and delete account
-    this.deleteUser(txn.sellerId);
+
+    // 2) Wipe out every listing the banned seller had. The platform can no
+    //    longer vouch for any book they were selling — they're gone too.
+    const survivingListings = this.getListings().filter(l => l.sellerId !== txn.sellerId);
+    this.saveListings(survivingListings);
+
+    // 3) Mark this transaction as refunded/disputed.
     txns[idx] = { ...txn, status: 'refunded', refundedAt: Date.now(), disputedAt: Date.now() };
     this.saveTransactions(txns);
-    this.updateListing(txn.listingId, { status: 'active' });
+
+    // 4) Ban the seller — delete the account record outright. Auth's login
+    //    flow falls back to "Invalid email or password" because getUserByEmail
+    //    will return null, so the seller can never log back in with those creds.
+    this.deleteUser(txn.sellerId);
+
     return { txn: txns[idx] };
   },
 

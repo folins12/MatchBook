@@ -177,7 +177,7 @@ function renderTxnCard(t) {
     <div class="txn-card animate-in" id="txnCard_${t.id}">
       <div class="txn-header">
         <div>
-          <div class="txn-title">${escHtml(listing?.bookTitle || 'Unknown book')}</div>
+          <div class="txn-title">${escHtml(t.bookTitle || listing?.bookTitle || 'Unknown book')}</div>
           <div class="txn-id">ID: ${t.id}</div>
           <div style="font-size:.8rem;color:var(--ink-3);margin-top:2px;">${iAmBuyer ? '📦 Seller' : '🛒 Buyer'}: ${escHtml(otherUser?.name || 'Unknown')}</div>
         </div>
@@ -224,7 +224,10 @@ function renderActions(t) {
   const iAmBuyer = currentUser.id === t.buyerId;
   if (iAmBuyer) {
     if (t.status === 'pending_deposit') {
-      return `<button class="btn btn-primary" onclick="openDepositModal('${t.id}')">💳 Pay ${formatPrice(t.deposit)} Deposit</button>
+      // Upfront = deposit + buyer fee. €0 fee for PRO buyers, so for them
+      // this collapses back to just the deposit, which is correct.
+      const upfront = parseFloat((t.deposit + (t.buyerFee || 0)).toFixed(2));
+      return `<button class="btn btn-primary" onclick="openDepositModal('${t.id}')">💳 Pay ${formatPrice(upfront)} now</button>
               <button class="btn btn-ghost btn-sm" onclick="cancelTxn('${t.id}')" style="color:var(--red);">Cancel</button>`;
     }
     if (t.status === 'deposit_paid') {
@@ -262,7 +265,7 @@ function openDepositModal(txnId) {
     <div style="margin-bottom:20px;">
       <p style="margin-bottom:12px;">You're about to pay the <strong>30% escrow deposit</strong> to reserve:</p>
       <div class="card card-sm" style="margin-bottom:12px;">
-        <div style="font-weight:600;">${escHtml(listing?.bookTitle || 'Unknown book')}</div>
+        <div style="font-weight:600;">${escHtml(t.bookTitle || listing?.bookTitle || 'Unknown book')}</div>
         <div style="font-size:.85rem;color:var(--ink-3);margin-top:4px;">Full price: ${formatPrice(t.totalPrice)} — Deposit (30%): <strong style="color:var(--accent);">${formatPrice(t.deposit)}</strong></div>
       </div>
       <div class="price-breakdown">
@@ -288,7 +291,15 @@ function executeDeposit(txnId) {
   const result = DB.payDeposit(txnId);
   if (result.error) { toast(result.error, 'error'); return; }
   closeModal('depositModal');
-  showSuccess('✅', 'Deposit paid!', `Your ${formatPrice(result.txn.deposit)} deposit has been held in escrow. Now coordinate with the seller to arrange the handover, then pay the remaining ${formatPrice(result.txn.remainder)} in person.`);
+  const t = result.txn;
+  const fee = t.buyerFee || 0;
+  const upfront = parseFloat((t.deposit + fee).toFixed(2));
+  // The escrow only covers the deposit portion — the buyer fee is the platform's
+  // cut. We say so explicitly to keep the numbers honest for the user.
+  const body = fee > 0
+    ? `You paid ${formatPrice(upfront)} upfront — ${formatPrice(t.deposit)} held in escrow as your refundable deposit, ${formatPrice(fee)} platform fee. Now meet the seller, verify the book, and pay the remaining ${formatPrice(t.remainder)} in person.`
+    : `Your ${formatPrice(t.deposit)} deposit has been held in escrow. Now meet the seller, verify the book, and pay the remaining ${formatPrice(t.remainder)} in person.`;
+  showSuccess('✅', 'Deposit paid!', body);
   refreshBalance();
   renderTransactions();
 }
@@ -301,7 +312,7 @@ function openConfirmModal(txnId) {
   document.getElementById('confirmModalBody').innerHTML = `
     <p style="margin-bottom:16px;">By confirming, you acknowledge that:</p>
     <ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
-      <li>✅ You received <strong>${escHtml(listing?.bookTitle || 'the book')}</strong></li>
+      <li>✅ You received <strong>${escHtml(t.bookTitle || listing?.bookTitle || 'the book')}</strong></li>
       <li>✅ You've paid the remaining <strong>${formatPrice(t.remainder)}</strong> in cash to the seller</li>
       <li>✅ The book matches the listing description</li>
     </ul>
