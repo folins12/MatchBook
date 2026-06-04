@@ -10,10 +10,6 @@
 // and in transaction creation.
 const BUYER_FEE = 1.00;
 
-// Share of the book price the buyer pays online upfront (escrow deposit).
-// The complement (1 - DEPOSIT_RATE) is paid in cash in person.
-const DEPOSIT_RATE = 0.3;
-
 // PRO subscription — paid once a year, grants:
 //   • no buyer fee on book purchases (saves BUYER_FEE per transaction)
 //   • PRO_FREE_BOOSTS free listing boosts on signup
@@ -39,6 +35,7 @@ const SCHOOLS_DB = [
   { id: 'RM002', name: 'Liceo Scientifico Farnesina', city: 'Roma', province: 'RM', region: 'Lazio', lat: 41.9334, lng: 12.4399 },
   { id: 'RM003', name: 'ITIS Galileo Galilei Roma', city: 'Roma', province: 'RM', region: 'Lazio', lat: 41.8719, lng: 12.5103 },
   { id: 'RM004', name: 'Liceo Linguistico Virgilio', city: 'Roma', province: 'RM', region: 'Lazio', lat: 41.8811, lng: 12.4678 },
+  { id: 'RM010', name: 'Liceo Democrito', city: 'Roma', province: 'RM', region: 'Lazio', lat: 41.7889, lng: 12.3556 },
   // Naples
   { id: 'NA001', name: 'Liceo Classico Umberto I', city: 'Napoli', province: 'NA', region: 'Campania', lat: 40.8522, lng: 14.2681 },
   { id: 'NA002', name: 'Liceo Scientifico Galilei Napoli', city: 'Napoli', province: 'NA', region: 'Campania', lat: 40.8612, lng: 14.2834 },
@@ -138,6 +135,7 @@ const DB = {
       password: data.password, // plain text for demo
       name: data.name,
       plan: data.plan || 'free', // 'free' | 'pro'
+      role: data.role || 'user', // 'user' | 'admin'
       // PRO members get PRO_FREE_BOOSTS bundled boosts on signup; free users start with 0.
       freeBoosts: (data.plan === 'pro') ? PRO_FREE_BOOSTS : 0,
       proSince: (data.plan === 'pro') ? Date.now() : null,
@@ -344,8 +342,6 @@ const DB = {
     const listing = this.getListingById(listingId);
     if (!listing) return null;
     const txns = this.getTransactions();
-    const deposit = parseFloat((listing.price * 0.30).toFixed(2));
-    const remainder = parseFloat((listing.price * 0.70).toFixed(2));
     // PRO buyers don't pay the platform's flat buyer fee. The fee is snapshotted
     // into the transaction at creation time so a later plan change doesn't
     // retroactively alter the price of an already-created deal.
@@ -360,13 +356,11 @@ const DB = {
       bookTitle: listing.bookTitle,
       bookPrice: listing.price,
       buyerFee: fee,
-      // totalPrice = book price + buyer fee (this is the buyer's full out-of-pocket).
-      // The 30/70 split still applies to the book price only — the fee goes to the platform.
+      // totalPrice = book price + buyer fee. The buyer pays this whole amount
+      // online in a single step — no deposit, no in-person cash.
       totalPrice: parseFloat((listing.price + fee).toFixed(2)),
-      deposit, remainder,
-      sellerPenalty: deposit, // 30% of price
-      status: 'pending_deposit', // pending_deposit → deposit_paid → completed | disputed | refunded
-      depositPaidAt: null,
+      status: 'pending_payment', // pending_payment → paid → completed | disputed | refunded
+      paidAt: null,
       completedAt: null,
       disputedAt: null,
       refundedAt: null,
@@ -376,19 +370,18 @@ const DB = {
     this.saveTransactions(txns);
     return txn;
   },
-  payDeposit(txnId) {
+  payNow(txnId) {
     const txns = this.getTransactions();
     const idx = txns.findIndex(t => t.id === txnId);
     if (idx === -1) return { error: 'Transaction not found' };
     const txn = txns[idx];
-    if (txn.status !== 'pending_deposit') return { error: 'Invalid state' };
+    if (txn.status !== 'pending_payment') return { error: 'Invalid state' };
     const buyer = this.getUserById(txn.buyerId);
-    // Upfront online payment = deposit + buyer fee (the platform fee).
-    const fee = txn.buyerFee || 0;
-    const upfront = parseFloat((txn.deposit + fee).toFixed(2));
-    if (!buyer || buyer.balance < upfront) return { error: 'Insufficient balance' };
-    this.updateUser(txn.buyerId, { balance: parseFloat((buyer.balance - upfront).toFixed(2)) });
-    txns[idx] = { ...txn, status: 'deposit_paid', depositPaidAt: Date.now() };
+    // Full online payment = book price + buyer fee, paid in one go.
+    const amount = txn.totalPrice;
+    if (!buyer || buyer.balance < amount) return { error: 'Insufficient balance' };
+    this.updateUser(txn.buyerId, { balance: parseFloat((buyer.balance - amount).toFixed(2)) });
+    txns[idx] = { ...txn, status: 'paid', paidAt: Date.now() };
     this.saveTransactions(txns);
     this.updateListing(txn.listingId, { status: 'reserved' });
     return { txn: txns[idx] };
@@ -398,7 +391,7 @@ const DB = {
     const idx = txns.findIndex(t => t.id === txnId);
     if (idx === -1) return { error: 'Not found' };
     const txn = txns[idx];
-    if (txn.status !== 'deposit_paid') return { error: 'Invalid state' };
+    if (txn.status !== 'paid') return { error: 'Invalid state' };
     txns[idx] = { ...txn, status: 'completed', completedAt: Date.now() };
     this.saveTransactions(txns);
     this.updateListing(txn.listingId, { status: 'sold' });
@@ -409,13 +402,12 @@ const DB = {
     const idx = txns.findIndex(t => t.id === txnId);
     if (idx === -1) return { error: 'Not found' };
     const txn = txns[idx];
-    if (txn.status !== 'deposit_paid') return { error: 'Invalid state' };
+    if (txn.status !== 'paid') return { error: 'Invalid state' };
 
-    // 1) Refund the buyer fully — both the deposit AND the buyer fee, since
-    //    the seller is at fault. The refund matches what payDeposit debited.
+    // 1) Refund the buyer the full amount they paid online, since the seller
+    //    is at fault. The refund matches what payNow debited.
     const buyer = this.getUserById(txn.buyerId);
-    const fee = txn.buyerFee || 0;
-    const refundAmount = parseFloat((txn.deposit + fee).toFixed(2));
+    const refundAmount = txn.totalPrice;
     if (buyer) this.updateUser(txn.buyerId, { balance: parseFloat((buyer.balance + refundAmount).toFixed(2)) });
 
     // 2) Wipe out every listing the banned seller had. The platform can no
@@ -435,33 +427,269 @@ const DB = {
     return { txn: txns[idx] };
   },
 
-  // ── Seed ───────────────────────────────────────────────────────────────────
+  // ── Admin / Metrics helpers ─────────────────────────────────────────────────
+  isAdmin(user) {
+    const u = user || this.currentUser();
+    return !!(u && u.role === 'admin');
+  },
+  getMetrics() { return this._get('mb_metrics', null); },
+
+  // ── Seed ─────────────────────────────────────────────────────────────────────
+  // Single-school deployment: MatchBook piloted at "Liceo Democrito" (QR code on the
+  // school notice board). Everything below is generated deterministically so the demo
+  // is stable across reloads, and the dashboard snapshot (mb_metrics) is kept aligned
+  // with the shape of this seeded data.
   seed() {
-    if (this._get('mb_seeded_v3')) return;
-    // Wipe data from any previous schema so we start clean on the new PRO-aware model.
-    ['mb_seeded', 'mb_seeded_v2'].forEach(prev => {
-      if (this._get(prev)) {
-        ['mb_users','mb_listings','mb_conversations','mb_transactions','mb_session', prev]
-          .forEach(k => localStorage.removeItem(k));
+    const SEED_KEY = 'mb_seeded_v5';
+    if (this._get(SEED_KEY)) return;
+    // Wipe any previous schema/data so we start clean on the Democrito deployment.
+    ['mb_users','mb_listings','mb_conversations','mb_transactions','mb_session',
+     'mb_metrics','mb_waitlist','mb_seeded','mb_seeded_v2','mb_seeded_v3','mb_seeded_v4']
+      .forEach(k => localStorage.removeItem(k));
+
+    const SCHOOL = 'RM010';            // Liceo Democrito
+    const now = Date.now();
+    const DAY = 86400000;
+
+    // Deterministic PRNG (mulberry32) — fixed seed → stable demo data.
+    let _s = 0x6d2b79f5 ^ 20260601;
+    const rnd = () => { _s |= 0; _s = (_s + 0x6D2B79F5) | 0; let t = Math.imul(_s ^ (_s >>> 15), 1 | _s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+    const ri = (min, max) => Math.floor(rnd() * (max - min + 1)) + min;
+    const shuffle = (arr) => { const a = arr.slice(); for (let k = a.length - 1; k > 0; k--) { const r = Math.floor(rnd() * (k + 1)); [a[k], a[r]] = [a[r], a[k]]; } return a; };
+    // pick a createdAt timestamp inside a [minDaysAgo, maxDaysAgo] window
+    const tsAgo = (minD, maxD) => now - Math.floor((minD + rnd() * (maxD - minD)) * DAY);
+
+    const FIRST_M = ['Lorenzo','Matteo','Francesco','Alessandro','Andrea','Leonardo','Riccardo','Tommaso','Gabriele','Edoardo','Davide','Giovanni','Federico','Marco','Simone','Pietro','Giulio','Antonio','Filippo','Nicolo','Samuele','Christian','Diego','Emanuele','Vincenzo'];
+    const FIRST_F = ['Sofia','Giulia','Aurora','Alice','Ginevra','Emma','Greta','Martina','Chiara','Sara','Beatrice','Anna','Vittoria','Ludovica','Gaia','Noemi','Elena','Francesca','Camilla','Bianca','Rebecca','Alessia','Matilde','Viola','Arianna'];
+    const SURNAMES = ['Di Nobile','Morgante','Tomei','Mannato','Liberato','Rendesi','Coratella','Zuzzolo','Vernazza','Jeses','Giovanardi','Mansutti','Giordani','Rolla','Tamburro','De Vita','Scibetta','Rotaru','Risa','Paolantoni','Antonini','Di Cicco','Pagetto','Massaro','Pinchiurri','Belleggia','Monti','Troiano','Scevola','Casucci','Petrolati','Mioli','Fincato','Chinelli','Tonti','Peperoni','Valentini','Iozza','Celletti','Amore','Tanari','Vacca','Schirinzi','Capurro','Alonge','Garibaldi','Capozza','Pierpaoli','Colombo','Di Gregorio','Gervasoni','Gurrieri','Nesbitt','Tozzi','Grossi','Fioravanti','Scarcella','De Siena','Cappelli','Schembri','Ortuso','Bertaccini','Altavilla','Olini','Raso','Cartocci','Mazzocchi','Germano','Facchini','Martegiani','Benvenuti','Coria','Maralli','Ravanello','Pavia','Limongi','Conti','Pansini','Buti','Golinelli','Gatti','Ilari','Iossa','Ridolfi','Mollichelli','Carlucci','Rauso','Lombardo','Queirolo','Lagna','Punti','Pezzella','Pozzi','De Blasis','Arnedo','Daniello','Fanello','Monaco','Misino','Momigliano','Pennesi','Tassara','Scarchilli','Ruotolo','Cauli','Compagnoni','Bellanti','Gorini','Rizzo','Capuano','Aureli','Nenni','Curiale','Pennestri','Mori','Neri','Chiantini','Canepa','Cingolani','Parisi','Libori','Gambale','Duca','Battistelli','Barducci','Recchioni','Catella','Vitali','Bilancio','Gilestri','Ruberti','Mulas','Ortenzi','Mollica','De Giovanni','Giannotti','Angiolosanto','Di Panfilo','Macro','Barbara','Capaccioli','Capobianco','Arduini','Alonzo','Giannico','Livraga','Pagliaroli','Frabetti','Massasso','Noseda','Sartori','Codacci','Sandonato','Mottola','Scagliarini','Improta','Scheri','Minighini','Migani','Longo','Gualdi','Fiore','Orlandi','Nota','Bisceglia','Maccallini','Lippucci','Capitolo','Cornacchini','Feroleto','Melli','Marini','Finocchietti','Zaffari','Palaia','Pucci','Vinciarelli','Corsetti'];
+
+    const slug = (s) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z]/g,'');
+
+    // ── USERS ──────────────────────────────────────────────────────────────────
+    // 70 students "school-linked" (all-time). createdAt windows engineered so the
+    // marketplace feels like it filled up gradually: 27 in last 7d, +23 in 8-30d,
+    // +20 in 31-48d. Plus 1 admin (founder) account.
+    const users = [];
+    const usedEmails = new Set();
+    const N_STUDENTS = 70;
+
+    // Admin / founder — only this account can open the Metrics Dashboard.
+    users.push({
+      id: 'u_admin', email: 'admin@matchbook.it', password: 'admin1234',
+      name: 'MatchBook Admin', plan: 'pro', role: 'admin', freeBoosts: 5,
+      proSince: now - 60 * DAY, schoolId: SCHOOL, balance: 200, penaltyCount: 0,
+      createdAt: now - 50 * DAY, active: true,
+    });
+
+    // Friendly demo student — ties to the dashboard hero ("Giulia and N others").
+    const giulia = {
+      id: 'u_giulia', email: 'giulia@demo.it', password: 'demo1234',
+      name: 'Giulia Morgante', plan: 'free', role: 'user', freeBoosts: 0,
+      proSince: null, schoolId: SCHOOL, balance: 200, penaltyCount: 0,
+      createdAt: tsAgo(1, 6), active: true,
+    };
+    users.push(giulia);
+    usedEmails.add('giulia@demo.it'); usedEmails.add('admin@matchbook.it');
+
+    const surn = shuffle(SURNAMES);
+    let si = 0;
+    for (let n = 1; n < N_STUDENTS; n++) {            // 69 more → 70 students total
+      const female = rnd() < 0.52;
+      const first = female ? pick(FIRST_F) : pick(FIRST_M);
+      const surname = surn[si++ % surn.length];
+      let email = slug(first) + '.' + slug(surname) + '@studenti.democrito.it';
+      let g = 2; while (usedEmails.has(email)) { email = slug(first) + '.' + slug(surname) + g + '@studenti.democrito.it'; g++; }
+      usedEmails.add(email);
+      // window assignment: indexes 0..26 → 7d, 27..49 → 8-30d, 50..68 → 31-48d
+      let createdAt;
+      if (n <= 26)      createdAt = tsAgo(1, 6);
+      else if (n <= 49) createdAt = tsAgo(8, 29);
+      else              createdAt = tsAgo(31, 47);
+      users.push({
+        id: 'u_d' + n, email, password: 'demo1234',
+        name: first + ' ' + surname, plan: 'free', role: 'user', freeBoosts: 0,
+        proSince: null, schoolId: SCHOOL, balance: 200, penaltyCount: 0,
+        createdAt, active: true,
+      });
+    }
+
+    // Monetization signals: ~9 PRO upgrades + ~11 free users who boosted a listing
+    // → ~20 distinct "monetizers" all-time (aligns with the 28% headline KPI).
+    const studentIdxs = users.map((u, idx) => idx).filter(idx => users[idx].role === 'user');
+    const proPicks = shuffle(studentIdxs).slice(0, 9);
+    proPicks.forEach(idx => {
+      users[idx].plan = 'pro';
+      users[idx].freeBoosts = ri(1, 5);
+      users[idx].proSince = users[idx].createdAt + ri(1, 5) * DAY;
+    });
+    const proSet = new Set(proPicks);
+    const boosterIdxs = shuffle(studentIdxs.filter(idx => !proSet.has(idx))).slice(0, 11);
+
+    this.saveUsers(users);
+
+    // ── LISTINGS ───────────────────────────────────────────────────────────────
+    // 31 distinct sellers, ~55 listings. Booster users always have ≥1 boosted listing.
+    const books = BOOKS_DB;
+    const conditions = ['new', 'like_new', 'good', 'fair'];
+    const descs = ['Lightly used, no underlining', 'Like new, barely opened', 'Some pencil notes inside',
+      'Good condition, cover a bit worn', 'A few highlighted pages', 'Excellent condition', '', '',
+      'Comes with the workbook', 'No missing pages'];
+    const listings = [];
+    let lid = 1;
+    const sellerPool = shuffle(studentIdxs).slice(0, 31);     // 31 sellers
+    // make sure every booster is also a seller
+    boosterIdxs.forEach(b => { if (!sellerPool.includes(b)) sellerPool.push(b); });
+
+    sellerPool.forEach((uIdx, k) => {
+      const u = users[uIdx];
+      const count = ri(1, 3);
+      const isBooster = boosterIdxs.includes(uIdx) || u.plan === 'pro';
+      for (let c = 0; c < count; c++) {
+        const b = pick(books);
+        const maxPrice = +(b.cost * 0.5).toFixed(2);
+        const price = +(Math.max(2, maxPrice * (0.45 + rnd() * 0.5))).toFixed(2);
+        const finalPrice = Math.min(price, maxPrice);
+        // listing creation time ≥ the seller's signup time
+        const minDaysAgo = Math.max(1, Math.round((now - u.createdAt) / DAY) - 2);
+        const createdAt = u.createdAt + Math.floor(rnd() * Math.max(1, (now - u.createdAt) * 0.6));
+        listings.push({
+          id: 'lst_' + lid++, sellerId: u.id, schoolId: SCHOOL, isbn: b.isbn,
+          bookTitle: b.title, bookAuthor: b.author, subject: b.subject,
+          condition: pick(conditions), price: finalPrice, description: pick(descs),
+          status: 'active', boosted: (isBooster && c === 0), createdAt,
+        });
       }
     });
-    // Seed demo users — buyer@demo.it is on free, seller@demo.it / seller2@demo.it are PRO
-    this.createUser({ email: 'buyer@demo.it',  password: 'demo1234', name: 'Giulia Ferraro',  plan: 'free', schoolId: 'NA001' });
-    this.createUser({ email: 'seller@demo.it', password: 'demo1234', name: 'Marco Esposito',  plan: 'pro',  schoolId: 'NA001' });
-    this.createUser({ email: 'seller2@demo.it',password: 'demo1234', name: 'Sofia Romano',    plan: 'pro',  schoolId: 'NA002' });
-    const s1 = this.getUserByEmail('seller@demo.it');
-    const s2 = this.getUserByEmail('seller2@demo.it');
-    // Seed listings
-    if (s1) {
-      this.createListing({ sellerId: s1.id, schoolId: 'NA001', isbn: '9788800000003', bookTitle: 'Matematica.blu 2.0 Vol. 1', bookAuthor: 'Bergamini, Trifone, Barozzi', subject: 'Mathematics', condition: 'good', price: 14.00, description: 'Lightly used, no underlining' });
-      this.createListing({ sellerId: s1.id, schoolId: 'NA001', isbn: '9788800000011', bookTitle: 'Grammatica Latina', bookAuthor: 'Traina & Pasqualini', subject: 'Latin', condition: 'like_new', price: 12.50, description: 'Like new, bought and never used' });
-      this.createListing({ sellerId: s1.id, schoolId: 'NA001', isbn: '9788800000001', bookTitle: 'Divina Commedia — Commento', bookAuthor: 'Dante Alighieri (ed. Sapegno)', subject: 'Italian Literature', condition: 'fair', price: 8.00, description: 'Some pencil notes' });
+    this.saveListings(listings);
+
+    // ── TRANSACTIONS ─────────────────────────────────────────────────────────────
+    // Build a believable purchase history. All-time targets: 60 purchases started,
+    // 39 paid, with most of those completed. Buyers ≠ sellers, same school.
+    const txns = [];
+    const convos = [];
+    let tid = 1, cid = 1;
+    const buyerPool = shuffle(studentIdxs);
+    const activeListings = listings.filter(l => l.status === 'active');
+    const shuffledListings = shuffle(activeListings);
+    const N_TXN = 52;
+    let bI = 0;
+    for (let t = 0; t < N_TXN && t < shuffledListings.length; t++) {
+      const listing = shuffledListings[t];
+      // find a buyer who isn't the seller
+      let buyer = null, tries = 0;
+      do { buyer = users[buyerPool[bI++ % buyerPool.length]]; tries++; } while (buyer.id === listing.sellerId && tries < 10);
+      if (buyer.id === listing.sellerId) continue;
+      const fee = buyer.plan === 'pro' ? 0 : BUYER_FEE;
+      const createdAt = listing.createdAt + Math.floor(rnd() * Math.max(1, (now - listing.createdAt) * 0.8));
+      // status distribution: ~ 30 completed, ~9 paid (awaiting handover), rest unpaid
+      let status, listingStatus;
+      const roll = rnd();
+      if (t < 30)       { status = 'completed';       listingStatus = 'sold'; }
+      else if (t < 39)  { status = 'paid';            listingStatus = 'reserved'; }
+      else              { status = 'pending_payment'; listingStatus = 'active'; }
+      // reflect status onto the listing
+      const lref = listings.find(l => l.id === listing.id);
+      if (lref) lref.status = listingStatus;
+      txns.push({
+        id: 'txn_' + (tid++), buyerId: buyer.id, sellerId: listing.sellerId, listingId: listing.id,
+        bookTitle: listing.bookTitle, bookPrice: listing.price, buyerFee: fee,
+        totalPrice: +(listing.price + fee).toFixed(2),
+        status,
+        paidAt: status === 'pending_payment' ? null : createdAt + ri(1, 3) * 3600000,
+        completedAt: status === 'completed' ? createdAt + ri(1, 4) * DAY : null,
+        disputedAt: null, refundedAt: null, createdAt,
+      });
     }
-    if (s2) {
-      this.createListing({ sellerId: s2.id, schoolId: 'NA002', isbn: '9788800000007', bookTitle: 'Biologia — La scienza della vita', bookAuthor: 'Campbell & Reece', subject: 'Biology', condition: 'good', price: 18.00, description: 'Excellent condition' });
-      this.createListing({ sellerId: s2.id, schoolId: 'NA002', isbn: '9788800000009', bookTitle: 'Storia Moderna Vol. 1', bookAuthor: 'Braudel', subject: 'History', condition: 'like_new', price: 14.50 });
+
+    // Make sure the demo student Giulia has visible history: one completed buy + one
+    // awaiting-handover, plus a sale where she is the seller.
+    const giuliaBuy = listings.find(l => l.sellerId !== giulia.id && l.status === 'active');
+    if (giuliaBuy) {
+      giuliaBuy.status = 'sold';
+      txns.push({
+        id: 'txn_' + (tid++), buyerId: giulia.id, sellerId: giuliaBuy.sellerId, listingId: giuliaBuy.id,
+        bookTitle: giuliaBuy.bookTitle, bookPrice: giuliaBuy.price, buyerFee: BUYER_FEE,
+        totalPrice: +(giuliaBuy.price + BUYER_FEE).toFixed(2),
+        status: 'completed',
+        paidAt: now - 4 * DAY, completedAt: now - 3 * DAY, disputedAt: null, refundedAt: null,
+        createdAt: now - 5 * DAY,
+      });
     }
-    this._set('mb_seeded_v3', true);
+
+    // Persist the sold/reserved/active status changes the transactions imply.
+    this.saveListings(listings);
+    this.saveTransactions(txns);
+
+    // ── A FEW CONVERSATIONS (so Messages isn't empty in the demo) ────────────────
+    const openers = ['Ciao! Il libro è ancora disponibile?', 'Hi! Is this still available?',
+      'Ci possiamo vedere a scuola per lo scambio?', 'Posso passare a prenderlo domani?'];
+    const replies = ['Sì, ancora disponibile!', 'Certo, ci vediamo all\u2019intervallo.',
+      'Perfetto, ti aspetto davanti all\u2019ingresso.', 'Disponibile, fammi sapere quando passi.'];
+    const convListings = shuffle(activeListings).slice(0, 8);
+    convListings.forEach(l => {
+      let buyer = users[buyerPool[(bI++) % buyerPool.length]];
+      if (buyer.id === l.sellerId) return;
+      const created = now - ri(1, 10) * DAY;
+      convos.push({
+        id: 'conv_' + (cid++), buyerId: buyer.id, sellerId: l.sellerId, listingId: l.id,
+        participants: [buyer.id, l.sellerId],
+        messages: [
+          { id: 'm' + cid + 'a', senderId: buyer.id, text: pick(openers), ts: created },
+          { id: 'm' + cid + 'b', senderId: l.sellerId, text: pick(replies), ts: created + 1800000 },
+        ],
+        createdAt: created,
+      });
+    });
+    // Giulia gets one conversation too
+    const gl = activeListings.find(l => l.sellerId !== giulia.id);
+    if (gl) {
+      const created = now - 2 * DAY;
+      convos.push({
+        id: 'conv_' + (cid++), buyerId: giulia.id, sellerId: gl.sellerId, listingId: gl.id,
+        participants: [giulia.id, gl.sellerId],
+        messages: [
+          { id: 'mg1', senderId: giulia.id, text: 'Ciao! Il libro \u00e8 ancora disponibile?', ts: created },
+          { id: 'mg2', senderId: gl.sellerId, text: 'S\u00ec! Ci vediamo a scuola domani?', ts: created + 1200000 },
+        ],
+        createdAt: created,
+      });
+    }
+    this.saveConversations(convos);
+
+    // ── DASHBOARD METRICS SNAPSHOT (admin-only Metrics Dashboard) ────────────────
+    // Curated, internally-consistent snapshot for the single-school deployment.
+    // d7 mirrors the agreed key-metric mockup; d30/all are larger, plausible slices
+    // sized to a ~100-student school whose whole community gradually came on board.
+    const metrics = {
+      school: 'Liceo Democrito',
+      windows: {
+        d7: {
+          label: 'Last 7 days', signups: 37, monetizers: 7,
+          funnel: { visitors: 142, signupStarted: 37, schoolLinked: 27, postedBook: 12, clickedReserve: 23, paidDeposit: 15 },
+          funnelPct: { signupStarted: 26, schoolLinked: 73, postedBook: 32, clickedReserve: 85, paidDeposit: 65 },
+          kpi: { activation: 73, listing: 32, escrow: 65, monetization: 28 },
+          engagement: { reserveClicks: 41, boostOpened: 9, proCtaTapped: 12, avgTimeToListing: '4.2', repeatSessions: 18, activeSellers: 7 },
+        },
+        d30: {
+          label: '1 month', signups: 68, monetizers: 13,
+          funnel: { visitors: 224, signupStarted: 68, schoolLinked: 49, postedBook: 21, clickedReserve: 41, paidDeposit: 27 },
+          funnelPct: { signupStarted: 30, schoolLinked: 72, postedBook: 31, clickedReserve: 84, paidDeposit: 66 },
+          kpi: { activation: 72, listing: 31, escrow: 66, monetization: 27 },
+          engagement: { reserveClicks: 73, boostOpened: 16, proCtaTapped: 21, avgTimeToListing: '4.6', repeatSessions: 34, activeSellers: 13 },
+        },
+        all: {
+          label: 'Always', signups: 96, monetizers: 20,
+          funnel: { visitors: 312, signupStarted: 96, schoolLinked: 70, postedBook: 31, clickedReserve: 60, paidDeposit: 39 },
+          funnelPct: { signupStarted: 31, schoolLinked: 73, postedBook: 32, clickedReserve: 86, paidDeposit: 65 },
+          kpi: { activation: 73, listing: 32, escrow: 65, monetization: 28 },
+          engagement: { reserveClicks: 118, boostOpened: 27, proCtaTapped: 34, avgTimeToListing: '4.4', repeatSessions: 71, activeSellers: 31 },
+        },
+      },
+    };
+    this._set('mb_metrics', metrics);
+
+    this._set(SEED_KEY, true);
   },
 };
 

@@ -3,6 +3,79 @@
 
 'use strict';
 
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  EMAIL CONFIG  ·  PASTE YOUR EMAILJS VALUES HERE                           ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+// The survey popup (email + 4 Yes/No answers) is sent here via EmailJS, a free
+// email API that works from a static site — no backend / no GitHub Pages server.
+//
+// HOW TO FILL THIS IN (one-time setup at https://www.emailjs.com — free plan):
+//   1. Sign up, then "Add an Email Service" and connect the mailbox that will
+//      SEND the emails (e.g. a Gmail). Copy its Service ID below.
+//      → The SENDER email + its password live in the EmailJS dashboard only.
+//        With Gmail you connect via Google login (OAuth), so NO password is
+//        stored anywhere. With custom SMTP you'd type the SMTP password into
+//        the EmailJS dashboard — NEVER into this file (this repo is public).
+//   2. "Create an Email Template". In the template's "To Email" field put
+//      {{to_email}} so the RECEIVER is taken from `toEmail` below. Copy the
+//      Template ID. (Template variables you can use: {{respondent_email}},
+//      {{link_school}}, {{sell_book}}, {{buy_book}}, {{upgrade_pro}},
+//      {{trigger_feature}}, {{submitted_at}}.)
+//   3. Account → General: copy your Public Key (safe to expose on the client).
+//   4. Paste the four values below. Leave them as-is to keep email OFF (the
+//      answers still save locally, the popup still works — it just won't send).
+const EMAILJS = {
+  serviceId:  'service_kuhvf9e',    // ← EmailJS → Email Services
+  templateId: 'template_9w4dzym',   // ← EmailJS → Email Templates
+  publicKey:  'nwSR8D4wAzNEEMI0j',    // ← EmailJS → Account → General  (public, OK in client code)
+  toEmail:    'matchbook.business@gmail.com',    // ← RECEIVER: where the survey responses are delivered
+};
+
+// Sends one survey response via the EmailJS REST API (no SDK needed).
+// Returns a Promise<boolean>. Safe to call even before setup: if the config
+// still holds placeholders it skips the network call and just warns.
+async function sendWaitlistEmail(record) {
+  const notConfigured =
+    !EMAILJS.serviceId  || EMAILJS.serviceId  === 'YOUR_SERVICE_ID'  ||
+    !EMAILJS.templateId || EMAILJS.templateId === 'YOUR_TEMPLATE_ID' ||
+    !EMAILJS.publicKey  || EMAILJS.publicKey  === 'YOUR_PUBLIC_KEY';
+  if (notConfigured) {
+    console.warn('[MatchBook] EmailJS not configured — response saved locally only.', record);
+    return false;
+  }
+  const a = record.answers || {};
+  const payload = {
+    service_id: EMAILJS.serviceId,
+    template_id: EMAILJS.templateId,
+    user_id: EMAILJS.publicKey,
+    template_params: {
+      to_email: EMAILJS.toEmail,
+      respondent_email: record.email,
+      trigger_feature: record.feature,
+      link_school: a.linkSchool,
+      sell_book: a.sellBook,
+      buy_book: a.buyBook,
+      upgrade_pro: a.upgradePro,
+      submitted_at: new Date(record.ts).toLocaleString('en-GB'),
+    },
+  };
+  try {
+    const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      console.error('[MatchBook] EmailJS send failed:', res.status, await res.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[MatchBook] EmailJS network error:', err);
+    return false;
+  }
+}
+
 // ─── NAVIGATION ──────────────────────────────────────────────────────────────
 
 function buildNav() {
@@ -18,12 +91,15 @@ function buildNav() {
         <img class="mb-logo-img" src="assets/logo.png" alt="MatchBook">
       </a>
       <div class="nav-links">
-        ${session ? `
+        ${session ? (
+          user && user.role === 'admin'
+            ? `<a href="dashboard.html" class="nav-link nav-link-admin ${isPage('dashboard') ? 'active' : ''}">Dashboard</a>`
+            : `
           <a href="announcements.html" class="nav-link ${isPage('announcements') ? 'active' : ''}">Browse</a>
           <a href="my-listings.html" class="nav-link ${isPage('my-listings') ? 'active' : ''}">Your Listings</a>
           <a href="chat.html" class="nav-link ${isPage('chat') ? 'active' : ''}">Messages</a>
           <a href="transactions.html" class="nav-link ${isPage('transactions') ? 'active' : ''}">Transactions</a>
-        ` : ''}
+        `) : ''}
       </div>
       <div class="nav-right">
         ${session && user ? `
@@ -54,6 +130,7 @@ function buildNav() {
                   Upgrade to PRO
                 </a>
               `}
+              ${user.role === 'admin' ? `<a href="dashboard.html" class="dropdown-btn dropdown-admin-link">📊 Metrics Dashboard</a>` : ''}
               <hr>
               <button class="dropdown-btn" onclick="logout()">Sign out</button>
             </div>
@@ -147,15 +224,15 @@ function conditionBadge(c) {
 }
 
 const STATUS_LABELS = {
-  pending_deposit: 'Awaiting Deposit',
-  deposit_paid: 'Deposit Paid',
+  pending_payment: 'Awaiting Payment',
+  paid: 'Paid',
   completed: 'Completed',
   refunded: 'Refunded',
   disputed: 'Disputed',
 };
 
 function statusBadge(s) {
-  const colors = { pending_deposit: 'warning', deposit_paid: 'info', completed: 'success', refunded: 'error', disputed: 'error' };
+  const colors = { pending_payment: 'warning', paid: 'info', completed: 'success', refunded: 'error', disputed: 'error' };
   return `<span class="badge badge-${colors[s] || 'muted'}">${STATUS_LABELS[s] || s}</span>`;
 }
 
@@ -176,6 +253,154 @@ function buildSchoolSelect(selectEl) {
     });
     selectEl.appendChild(og);
   });
+}
+
+// ─── COMING SOON (interest + quick survey) ──────────────────────────────────────
+// Shared, brand-styled modal used by every monetary CTA across the app. Payments
+// aren't built yet for the pilot, so instead of running the (fake) money flow we
+// collect an email plus a short 4-question intent survey. Responses are stored
+// locally under mb_waitlist. (Step 3 will POST these to an email endpoint.)
+
+// The four intent questions shown in the modal. `key` is what gets stored.
+const CS_QUESTIONS = [
+  { key: 'linkSchool', text: 'Would you link your school to your account?' },
+  { key: 'sellBook',   text: 'Would you sell a book on our platform?' },
+  { key: 'buyBook',    text: 'Would you buy a book on our platform?' },
+  { key: 'upgradePro', text: 'Would you consider upgrading to MatchBook PRO?' },
+];
+
+function _csInjectModal() {
+  if (document.getElementById('comingSoonModal')) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'comingSoonModal';
+  const questionsHtml = CS_QUESTIONS.map(q => `
+        <div class="cs-q" data-q="${q.key}">
+          <div class="cs-q-text">${q.text}</div>
+          <div class="cs-q-opts" role="group" aria-label="${q.text}">
+            <button type="button" class="cs-q-btn" data-val="yes" onclick="csAnswer('${q.key}','yes',this)">Yes</button>
+            <button type="button" class="cs-q-btn" data-val="no" onclick="csAnswer('${q.key}','no',this)">No</button>
+          </div>
+        </div>`).join('');
+  overlay.innerHTML = `
+    <div class="modal coming-soon-modal" role="dialog" aria-modal="true" aria-labelledby="csTitle">
+      <button class="modal-close" data-close-modal="comingSoonModal" aria-label="Close">&times;</button>
+      <div class="cs-body" id="csFormView">
+        <span class="cs-badge">Coming soon</span>
+        <h2 class="cs-title" id="csTitle">This feature is coming.</h2>
+        <p class="cs-sub" id="csSub">Secure online payments aren't live yet in this pilot. Leave your email and answer four quick questions — it helps us build the right thing, and we'll let you know the moment it's ready.</p>
+        <div class="cs-form">
+          <input type="email" id="csEmail" class="form-input cs-input" placeholder="name@school.it" autocomplete="email" />
+          <div class="cs-questions">
+            ${questionsHtml}
+          </div>
+          <div class="form-error" id="csError" style="display:none;"></div>
+          <button class="btn btn-primary btn-full cs-submit" onclick="submitComingSoon()">Keep me updated</button>
+        </div>
+        <p class="cs-fine">No spam — just one message when we open sign-ups.</p>
+      </div>
+      <div class="cs-done" id="csDoneView" style="display:none;">
+        <div class="cs-done-icon">✓</div>
+        <h2 class="cs-done-title">You're on the list!</h2>
+        <p class="cs-sub">We'll write to you as soon as it's ready. Thanks for helping us shape MatchBook.</p>
+        <button class="btn btn-secondary btn-full" data-close-modal="comingSoonModal">Close</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  // Submit on Enter inside the email field
+  overlay.querySelector('#csEmail')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); submitComingSoon(); }
+  });
+}
+
+// Toggle a Yes/No answer for one question. Only one option stays selected per row.
+function csAnswer(key, val, btn) {
+  const row = btn.closest('.cs-q');
+  if (!row) return;
+  row.querySelectorAll('.cs-q-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  row.classList.remove('error');
+}
+
+function openComingSoon(feature) {
+  _csInjectModal();
+  const label = feature || 'this feature';
+  // reset to the form view every time it's opened
+  const form = document.getElementById('csFormView');
+  const done = document.getElementById('csDoneView');
+  const err = document.getElementById('csError');
+  const email = document.getElementById('csEmail');
+  if (form) form.style.display = '';
+  if (done) done.style.display = 'none';
+  if (err) { err.style.display = 'none'; err.textContent = ''; }
+  // clear any previously selected / errored answers
+  document.querySelectorAll('#comingSoonModal .cs-q-btn.selected').forEach(b => b.classList.remove('selected'));
+  document.querySelectorAll('#comingSoonModal .cs-q.error').forEach(r => r.classList.remove('error'));
+  // prefill with the logged-in user's email if available
+  if (email) {
+    const u = DB.currentUser();
+    email.value = (u && u.email && !u.email.endsWith('@matchbook.it')) ? u.email : '';
+    email.classList.remove('error');
+  }
+  // stash which feature/button triggered this modal (recorded with the response)
+  const modal = document.getElementById('comingSoonModal');
+  if (modal) modal.dataset.feature = label;
+  openModal('comingSoonModal');
+  setTimeout(() => email?.focus(), 120);
+}
+
+function submitComingSoon() {
+  const email = document.getElementById('csEmail');
+  const err = document.getElementById('csError');
+  const val = (email?.value || '').trim();
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+
+  // Collect the four Yes/No answers from the selected buttons.
+  const answers = {};
+  let unanswered = 0;
+  CS_QUESTIONS.forEach(q => {
+    const row = document.querySelector(`#comingSoonModal .cs-q[data-q="${q.key}"]`);
+    const sel = row?.querySelector('.cs-q-btn.selected');
+    if (sel) {
+      answers[q.key] = sel.dataset.val; // 'yes' | 'no'
+    } else {
+      answers[q.key] = null;
+      unanswered++;
+      row?.classList.add('error');
+    }
+  });
+
+  // Validate email first, then make sure every question is answered.
+  if (!validEmail) {
+    if (err) { err.textContent = 'Please enter a valid email address.'; err.style.display = 'block'; }
+    email?.classList.add('error');
+    email?.focus();
+    return;
+  }
+  email?.classList.remove('error');
+  if (unanswered > 0) {
+    if (err) { err.textContent = 'Please answer all four questions.'; err.style.display = 'block'; }
+    return;
+  }
+  if (err) err.style.display = 'none';
+
+  const modal = document.getElementById('comingSoonModal');
+  const feature = modal?.dataset.feature || 'unknown';
+  const record = { email: val, feature, answers, ts: Date.now() };
+  try {
+    const list = DB._get('mb_waitlist', []);
+    list.push(record);
+    DB._set('mb_waitlist', list);
+  } catch (_) { /* storage best-effort */ }
+
+  // Fire off the email (non-blocking — the thank-you screen shows either way).
+  sendWaitlistEmail(record);
+
+  // swap to the thank-you view
+  const form = document.getElementById('csFormView');
+  const done = document.getElementById('csDoneView');
+  if (form) form.style.display = 'none';
+  if (done) done.style.display = '';
 }
 
 // ─── INIT ────────────────────────────────────────────────────────────────────

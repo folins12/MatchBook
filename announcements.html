@@ -252,8 +252,6 @@ function openListingDetail(id) {
   // here so the modal price breakdown matches what createTransaction will actually charge.
   const isPro = currentUser && currentUser.plan === 'pro';
   const fee = isPro ? 0 : BUYER_FEE;
-  const deposit = (l.price * 0.30 + fee).toFixed(2);
-  const remainder = (l.price * 0.70).toFixed(2);
   const total = (l.price + fee).toFixed(2);
 
 
@@ -294,8 +292,6 @@ function openListingDetail(id) {
     </div>
     <div class="price-breakdown">
       <div class="price-row"><span>Book price</span><span>${formatPrice(l.price)}</span></div>
-      <div class="price-row"><span>Deposit (30% — paid online)</span><span style="color:var(--accent);">€${deposit}</span></div>
-      <div class="price-row"><span>Remainder (70% — paid in person)</span><span>€${remainder}</span></div>
       <div class="price-row">
         <span>Buyer fee</span>
         <span>${isPro
@@ -306,7 +302,7 @@ function openListingDetail(id) {
 
     </div>
     <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
-      <button class="btn btn-primary" onclick="initiateTransaction('${l.id}','${l.sellerId}')">🔒 Reserve — Pay €${deposit} deposit</button>
+      <button class="btn btn-primary" onclick="initiateTransaction('${l.id}','${l.sellerId}')">🔒 Buy — Pay €${total}</button>
       <button class="btn btn-secondary" onclick="openChat('${l.sellerId}','${l.id}')">💬 Message seller</button>
     </div>
   `;
@@ -314,18 +310,9 @@ function openListingDetail(id) {
 }
 
 function initiateTransaction(listingId, sellerId) {
-  if (!currentUser) return;
-  const listing = DB.getListingById(listingId);
-  if (!listing) return;
-  if (listing.status !== 'active') { toast('This listing is no longer available', 'warning'); return; }
-  if (listing.sellerId === currentUser.id) { toast("You can't buy your own listing", 'error'); return; }
-
-  const txn = DB.createTransaction(currentUser.id, sellerId, listingId);
-  if (!txn) { toast('Could not create transaction', 'error'); return; }
-
+  // Online payment isn't live in the pilot — capture interest instead.
   closeModal('listingModal');
-  toast('Transaction created! Go to Transactions to pay your deposit.', 'success', 4000);
-  setTimeout(() => { location.href = 'transactions.html'; }, 1500);
+  openComingSoon('Buy a book');
 }
 
 function openChat(sellerId, listingId) {

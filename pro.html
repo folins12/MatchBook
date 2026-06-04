@@ -43,7 +43,7 @@
         </div>
         <div class="pro-benefit-title">Zero buyer fees</div>
         <div class="pro-benefit-desc">
-          Free members pay a €1.00 platform fee on every book they buy. With PRO that fee disappears — you pay just the book's listed price and the standard 30% deposit.
+          Free members pay a €1.00 platform fee on every book they buy. With PRO that fee disappears — you pay just the book's listed price.
         </div>
         <span class="pro-benefit-savings">Saves €1.00 on every purchase</span>
       </div>
@@ -102,7 +102,7 @@
           <div class="pro-compare-value included">✓</div>
         </div>
         <div class="pro-compare-row">
-          <div class="pro-compare-feature">Escrow-protected deposits</div>
+          <div class="pro-compare-feature">Secure online payments</div>
           <div class="pro-compare-value included">✓</div>
           <div class="pro-compare-value included">✓</div>
         </div>
@@ -183,17 +183,8 @@
   }
 
   function doUpgrade() {
-    if (!confirm('Upgrade to MatchBook PRO for €5.00?\n\nYou\'ll get 5 free boosts and skip all buyer fees for a year.')) return;
-    const result = DB.upgradeToPro(currentUser.id);
-    if (result.error) {
-      toast(result.error, 'error');
-      return;
-    }
-    currentUser = result.user;
-    toast('🎉 Welcome to MatchBook PRO!', 'success', 3500);
-    // Rebuild the nav so the avatar dropdown flips to the PRO state.
-    buildNav();
-    renderUpgradeArea();
+    // PRO checkout isn't live in the pilot — capture interest instead.
+    openComingSoon('MatchBook PRO');
   }
 </script>
 </body>

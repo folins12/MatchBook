@@ -140,7 +140,7 @@ function getBotResponse(intent, userText, botRole, listing) {
         `Yes, "${bookTitle}" is still available! 📚 Want to know anything specific?`,
         `Still up for grabs! It's in ${condStr} condition. Interested?`,
         `Yep, available — I haven't sold it yet. When could you pick it up?`,
-        `Available! I've had a couple of people asking, so let me know if you want to reserve it.`,
+        `Available! I've had a couple of people asking, so let me know if you want to buy it.`,
       ],
       buyer: [
         `Just checking — is the book still up for sale? 🙏`,
@@ -176,7 +176,7 @@ function getBotResponse(intent, userText, botRole, listing) {
           ];
           if (offered < listingPrice) return [
             `I could do ${formatPrice(offered)}, fair enough 🤝 Want to set up a pickup?`,
-            `${formatPrice(offered)} works for me! Just pay the 30% deposit on the platform and we're set.`,
+            `${formatPrice(offered)} works for me! Just pay on the platform and we're set.`,
             `OK, ${formatPrice(offered)} it is. Where do you go to school? Easier to meet there.`,
           ];
           return [
@@ -204,7 +204,7 @@ function getBotResponse(intent, userText, botRole, listing) {
           ];
           return [
             `${formatPrice(offered)} sounds great, deal! 🎉 When can we meet?`,
-            `That's a fair price, count me in. Just need to pay the 30% deposit, right?`,
+            `That's a fair price, count me in. I just pay on the platform, right?`,
           ];
         }
         return [
@@ -264,7 +264,7 @@ function getBotResponse(intent, userText, botRole, listing) {
     farewell: {
       seller: [
         `See you soon — message me when you're ready to meet! 👋`,
-        `Talk later! Don't forget to pay the deposit so I can hold the book for you.`,
+        `Talk later! Don't forget to pay on the platform so I can hold the book for you.`,
         `Ciao! Let me know how you want to proceed.`,
       ],
       buyer: [
@@ -277,7 +277,7 @@ function getBotResponse(intent, userText, botRole, listing) {
       seller: [
         `Sure, happy to help 🙂 anything else you'd like to know?`,
         `Got it. Let me know if you want to arrange the pickup.`,
-        `Makes sense. Just say the word when you're ready to reserve it.`,
+        `Makes sense. Just say the word when you're ready to buy it.`,
         `Hmm, not 100% sure what you mean — could you rephrase?`,
       ],
       buyer: [
@@ -356,7 +356,7 @@ function openConversation(convId) {
       <div class="chat-header-sub">${listing ? escHtml(listing.bookTitle) + ' · ' + formatPrice(listing.price) : ''}</div>
     </div>
     <div style="margin-left:auto;display:flex;gap:8px;">
-      ${iAmBuyer && listing ? `<button class="btn btn-primary btn-sm" onclick="quickBuy('${listing.id}','${otherId}')">🔒 Reserve book</button>` : ''}
+      ${iAmBuyer && listing ? `<button class="btn btn-primary btn-sm" onclick="quickBuy('${listing.id}','${otherId}')">🔒 Buy book</button>` : ''}
     </div>`;
 
   document.getElementById('emptyChatState').style.display = 'none';
@@ -457,7 +457,7 @@ function triggerBot(userText) {
       if (intent === 'price' && !conv.meetingProposed) {
         setTimeout(() => {
           const followUp = botRole === 'seller'
-            ? "Once we agree on price, I'll need you to pay the 30% deposit on the platform to reserve the book. 🔒"
+            ? "Once we agree on price, you can pay for the book directly on the platform, then we arrange the handover. 🔒"
             : "If we agree, could we meet near school? Easier to check the book in person.";
           DB.addMessage(activeConvId, 'bot', followUp);
           renderMessages(DB.getConversation(activeConvId));
@@ -469,11 +469,8 @@ function triggerBot(userText) {
 }
 
 function quickBuy(listingId, sellerId) {
-  const listing = DB.getListingById(listingId);
-  if (!listing || listing.status !== 'active') { toast('This listing is no longer available', 'warning'); return; }
-  const txn = DB.createTransaction(currentUser.id, sellerId, listingId);
-  toast('Transaction created! Redirecting to pay deposit…', 'success', 3000);
-  setTimeout(() => location.href = 'transactions.html', 1500);
+  // Online payment isn't live in the pilot — capture interest instead.
+  openComingSoon('Buy a book');
 }
 
 function escHtml(s) {

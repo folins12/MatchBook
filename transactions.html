@@ -31,11 +31,11 @@
     </div>
   </div>
 
-  <!-- Escrow Explainer -->
+  <!-- How it works -->
   <div class="info-banner" style="margin-bottom:24px;">
     <span>🔒</span>
     <div>
-      <strong>How MatchBook Escrow works:</strong> Pay a <strong>30% deposit</strong> to reserve a book. Meet the seller in person, verify the book, then pay the remaining <strong>70% cash</strong>. Confirm the transaction here. If something goes wrong, report an issue — you'll be <strong>fully refunded</strong> and the seller's account will be removed.
+      <strong>How MatchBook works:</strong> Pay the <strong>full price online</strong> to buy a book. Meet the seller to collect it, then confirm the transaction here. If something goes wrong, report an issue — you'll be <strong>fully refunded</strong> and the seller's account will be removed.
     </div>
   </div>
 
@@ -53,11 +53,11 @@
 </div>
 </main>
 
-<!-- PAY DEPOSIT MODAL -->
+<!-- PAY MODAL -->
 <div class="modal-overlay" id="depositModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('depositModal')">✕</button>
-    <h3 class="modal-title">Pay Deposit 🔒</h3>
+    <h3 class="modal-title">Pay 🔒</h3>
     <div id="depositModalBody"></div>
   </div>
 </div>
@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
   refreshBalance();
 
   document.getElementById('txnSubtitle').textContent =
-    'Track your purchases and sales, pay deposits, and confirm successful trades.';
+    'Track your purchases and sales, pay for books, and confirm successful trades.';
 
   renderTransactions();
 });
@@ -118,10 +118,7 @@ function refreshBalance() {
 }
 
 function topUpBalance() {
-  const user = DB.getUserById(currentUser.id);
-  DB.updateUser(currentUser.id, { balance: user.balance + 50 });
-  refreshBalance();
-  toast('+€50 added to your balance', 'success');
+  openComingSoon('Top up balance');
 }
 
 function renderTransactions() {
@@ -135,7 +132,7 @@ function renderTransactions() {
     emptyState.style.display = 'block';
     const text = document.getElementById('emptyStateText');
     const cta = document.getElementById('emptyStateCta');
-    text.textContent = 'Browse listings to reserve a book, or post your own to start receiving orders.';
+    text.textContent = 'Browse listings to buy a book, or post your own to start receiving orders.';
     cta.textContent = 'Browse listings';
     cta.href = 'announcements.html';
     return;
@@ -152,11 +149,11 @@ function renderTxnCard(t) {
   const otherUser = DB.getUserById(iAmBuyer ? t.sellerId : t.buyerId);
 
   const escrowSteps = [
-    { key: 'pending_deposit', icon: '📋', label: 'Created' },
-    { key: 'deposit_paid', icon: '💳', label: 'Deposit Paid' },
+    { key: 'pending_payment', icon: '📋', label: 'Created' },
+    { key: 'paid', icon: '💳', label: 'Paid' },
     { key: 'completed', icon: '✅', label: 'Completed' },
   ];
-  const stepOrder = ['pending_deposit', 'deposit_paid', 'completed'];
+  const stepOrder = ['pending_payment', 'paid', 'completed'];
   const currentStepIdx = t.status === 'refunded' ? -1 : stepOrder.indexOf(t.status);
 
   const escrowHtml = `
@@ -190,27 +187,14 @@ function renderTxnCard(t) {
           <div class="txn-detail-value" style="color:var(--accent);">${formatPrice(t.totalPrice)}</div>
         </div>
         <div class="txn-detail">
-          <div class="txn-detail-label">30% Deposit</div>
-          <div class="txn-detail-value">${formatPrice(t.deposit)}</div>
-        </div>
-        <div class="txn-detail">
-          <div class="txn-detail-label">70% In Person</div>
-          <div class="txn-detail-value">${formatPrice(t.remainder)}</div>
-        </div>
-        <div class="txn-detail">
           <div class="txn-detail-label">Created</div>
           <div class="txn-detail-value">${formatDate(t.createdAt)}</div>
         </div>
-        ${t.status === 'refunded' ? `
-          <div class="txn-detail" style="background:var(--red-light);">
-            <div class="txn-detail-label" style="color:var(--red);">Seller Penalty</div>
-            <div class="txn-detail-value" style="color:var(--red);">${formatPrice(t.sellerPenalty)}</div>
-          </div>` : ''}
       </div>
       ${t.status === 'refunded' ? `
         <div class="warning-banner" style="margin-bottom:0;">
           <span>⚠️</span>
-          <div>This transaction was disputed. You've been fully refunded <strong>${formatPrice(t.deposit)}</strong> to your balance. The seller's account has been removed.</div>
+          <div>This transaction was disputed. You've been fully refunded <strong>${formatPrice(t.totalPrice)}</strong> to your balance. The seller's account has been removed.</div>
         </div>` : ''}
       ${t.status === 'completed' ? `
         <div style="background:var(--green-light);border:1px solid var(--green);border-radius:var(--radius-sm);padding:12px 14px;font-size:.9rem;color:var(--green);">
@@ -223,156 +207,66 @@ function renderTxnCard(t) {
 function renderActions(t) {
   const iAmBuyer = currentUser.id === t.buyerId;
   if (iAmBuyer) {
-    if (t.status === 'pending_deposit') {
-      // Upfront = deposit + buyer fee. €0 fee for PRO buyers, so for them
-      // this collapses back to just the deposit, which is correct.
-      const upfront = parseFloat((t.deposit + (t.buyerFee || 0)).toFixed(2));
-      return `<button class="btn btn-primary" onclick="openDepositModal('${t.id}')">💳 Pay ${formatPrice(upfront)} now</button>
+    if (t.status === 'pending_payment') {
+      return `<button class="btn btn-primary" onclick="openDepositModal('${t.id}')">💳 Pay ${formatPrice(t.totalPrice)} now</button>
               <button class="btn btn-ghost btn-sm" onclick="cancelTxn('${t.id}')" style="color:var(--red);">Cancel</button>`;
     }
-    if (t.status === 'deposit_paid') {
+    if (t.status === 'paid') {
       return `
         <div style="background:var(--gold-light);border:1px solid var(--gold);border-radius:var(--radius-sm);padding:12px 14px;font-size:.85rem;color:var(--gold);margin-bottom:12px;width:100%;">
-          📅 Deposit paid! Meet the seller, verify the book, pay the remaining <strong>${formatPrice(t.remainder)}</strong> in cash, then confirm below.
+          📅 Paid! Meet the seller to collect the book, then confirm below.
         </div>
         <button class="btn btn-success" onclick="openConfirmModal('${t.id}')">✅ Confirm — Book received</button>
         <button class="btn btn-danger" onclick="openDisputeModal('${t.id}')">⚠️ Report issue</button>`;
     }
   } else {
     // Seller side of this transaction
-    if (t.status === 'deposit_paid') {
+    if (t.status === 'paid') {
       return `<div style="background:var(--blue-light);border:1px solid var(--blue);border-radius:var(--radius-sm);padding:12px 14px;font-size:.85rem;color:var(--blue);width:100%;">
-        📬 Deposit received! Arrange the meetup with the buyer via <a href="chat.html" style="font-weight:600;">Messages</a>. They'll confirm on their end after the handover.
+        📬 Payment received! Arrange the handover with the buyer via <a href="chat.html" style="font-weight:600;">Messages</a>. They'll confirm on their end after you hand over the book.
       </div>`;
     }
   }
   return '';
 }
 
-// ── DEPOSIT ────────────────────────────────────────────────────────────────────
+// ── PAY ────────────────────────────────────────────────────────────────────
 
 function openDepositModal(txnId) {
-  const t = DB.getTransactionById(txnId);
-  const listing = DB.getListingById(t.listingId);
-  const user = DB.getUserById(currentUser.id);
-  // Upfront payment = deposit + buyer fee. The fee can be €0 for PRO buyers
-  // (whose buyerFee was snapshotted at transaction creation).
-  const fee = t.buyerFee || 0;
-  const upfront = parseFloat((t.deposit + fee).toFixed(2));
-  const hasBalance = user.balance >= upfront;
-
-  document.getElementById('depositModalBody').innerHTML = `
-    <div style="margin-bottom:20px;">
-      <p style="margin-bottom:12px;">You're about to pay the <strong>30% escrow deposit</strong> to reserve:</p>
-      <div class="card card-sm" style="margin-bottom:12px;">
-        <div style="font-weight:600;">${escHtml(t.bookTitle || listing?.bookTitle || 'Unknown book')}</div>
-        <div style="font-size:.85rem;color:var(--ink-3);margin-top:4px;">Full price: ${formatPrice(t.totalPrice)} — Deposit (30%): <strong style="color:var(--accent);">${formatPrice(t.deposit)}</strong></div>
-      </div>
-      <div class="price-breakdown">
-        <div class="price-row"><span>Your current balance</span><span style="color:var(--green);">€${user.balance.toFixed(2)}</span></div>
-        <div class="price-row"><span>Deposit amount</span><span style="color:var(--accent);">-${formatPrice(t.deposit)}</span></div>
-        <div class="price-row"><span>Buyer fee</span><span>${fee > 0
-          ? '<span style="color:var(--accent);">-€' + fee.toFixed(2) + '</span>'
-          : '<span style="text-decoration:line-through;color:var(--ink-4);margin-right:6px;">-€1.00</span><span style="color:var(--accent);font-weight:600;">FREE · PRO</span>'}</span></div>
-        <div class="price-row total"><span>Balance after payment</span><span style="color:${hasBalance ? 'var(--green)' : 'var(--red)'};">€${(user.balance - upfront).toFixed(2)}</span></div>
-      </div>
-      ${!hasBalance ? `<div class="warning-banner" style="margin-top:12px;margin-bottom:0;">⚠️ Insufficient balance. <button class="btn btn-ghost btn-sm" onclick="closeModal('depositModal');topUpBalance();">Add funds</button></div>` : ''}
-    </div>
-    <div style="display:flex;gap:10px;">
-      <button class="btn btn-primary btn-full" onclick="executeDeposit('${txnId}')" ${!hasBalance ? 'disabled' : ''}>
-        💳 Pay ${formatPrice(upfront)} now
-      </button>
-      <button class="btn btn-secondary" onclick="closeModal('depositModal')">Cancel</button>
-    </div>`;
-  openModal('depositModal');
+  // Online payment isn't live in the pilot — capture interest instead.
+  openComingSoon('Online payment');
 }
 
 function executeDeposit(txnId) {
-  const result = DB.payDeposit(txnId);
-  if (result.error) { toast(result.error, 'error'); return; }
-  closeModal('depositModal');
-  const t = result.txn;
-  const fee = t.buyerFee || 0;
-  const upfront = parseFloat((t.deposit + fee).toFixed(2));
-  // The escrow only covers the deposit portion — the buyer fee is the platform's
-  // cut. We say so explicitly to keep the numbers honest for the user.
-  const body = fee > 0
-    ? `You paid ${formatPrice(upfront)} upfront — ${formatPrice(t.deposit)} held in escrow as your refundable deposit, ${formatPrice(fee)} platform fee. Now meet the seller, verify the book, and pay the remaining ${formatPrice(t.remainder)} in person.`
-    : `Your ${formatPrice(t.deposit)} deposit has been held in escrow. Now meet the seller, verify the book, and pay the remaining ${formatPrice(t.remainder)} in person.`;
-  showSuccess('✅', 'Deposit paid!', body);
-  refreshBalance();
-  renderTransactions();
+  openComingSoon('Online payment');
 }
 
 // ── CONFIRM ────────────────────────────────────────────────────────────────────
 
 function openConfirmModal(txnId) {
-  const t = DB.getTransactionById(txnId);
-  const listing = DB.getListingById(t.listingId);
-  document.getElementById('confirmModalBody').innerHTML = `
-    <p style="margin-bottom:16px;">By confirming, you acknowledge that:</p>
-    <ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
-      <li>✅ You received <strong>${escHtml(t.bookTitle || listing?.bookTitle || 'the book')}</strong></li>
-      <li>✅ You've paid the remaining <strong>${formatPrice(t.remainder)}</strong> in cash to the seller</li>
-      <li>✅ The book matches the listing description</li>
-    </ul>
-    <div class="info-banner" style="margin-bottom:16px;">ℹ️ This action cannot be undone. The transaction will be marked complete.</div>
-    <div style="display:flex;gap:10px;">
-      <button class="btn btn-success btn-full" onclick="executeConfirm('${txnId}')">✅ Confirm transaction</button>
-      <button class="btn btn-secondary" onclick="closeModal('confirmModal')">Back</button>
-    </div>`;
-  openModal('confirmModal');
+  // Confirming the handover isn't live in the pilot — capture interest instead.
+  openComingSoon('Confirm handover');
 }
 
 function executeConfirm(txnId) {
-  const result = DB.confirmTransaction(txnId);
-  if (result.error) { toast(result.error, 'error'); return; }
-  closeModal('confirmModal');
-  showSuccess('🎉', 'Transaction complete!', 'Enjoy your book! The listing has been marked as sold.');
-  renderTransactions();
+  openComingSoon('Confirm handover');
 }
 
 // ── DISPUTE ────────────────────────────────────────────────────────────────────
 
 function openDisputeModal(txnId) {
-  const t = DB.getTransactionById(txnId);
-  document.getElementById('disputeModalBody').innerHTML = `
-    <div class="warning-banner" style="margin-bottom:16px;">
-      <span>⚠️</span>
-      <div>Reporting an issue is serious. Only do this if the seller genuinely failed to deliver or misrepresented the book.</div>
-    </div>
-    <p style="margin-bottom:12px;font-weight:500;">What will happen if you confirm the report:</p>
-    <ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:8px;margin-bottom:20px;font-size:.9rem;">
-      <li style="color:var(--green);">✅ You'll be <strong>fully refunded</strong> ${formatPrice(t.deposit)}</li>
-      <li style="color:var(--red);">❌ The seller will pay a <strong>${formatPrice(t.sellerPenalty)} penalty</strong></li>
-      <li style="color:var(--red);">❌ The seller's account will be <strong>permanently removed</strong></li>
-    </ul>
-    <div class="form-group">
-      <label class="form-label">Describe the issue</label>
-      <textarea class="form-textarea" id="disputeReason" placeholder="e.g. Seller didn't show up, book was in worse condition than described…"></textarea>
-    </div>
-    <div style="display:flex;gap:10px;">
-      <button class="btn btn-danger btn-full" onclick="executeDispute('${txnId}')">⚠️ Confirm issue report</button>
-      <button class="btn btn-secondary" onclick="closeModal('disputeModal')">Cancel</button>
-    </div>`;
-  openModal('disputeModal');
+  // Dispute/refund flow isn't live in the pilot — capture interest instead.
+  openComingSoon('Report & refund');
 }
 
 function executeDispute(txnId) {
-  const reason = document.getElementById('disputeReason').value.trim();
-  if (!reason) { toast('Please describe the issue', 'warning'); return; }
-  const result = DB.disputeTransaction(txnId);
-  if (result.error) { toast(result.error, 'error'); return; }
-  closeModal('disputeModal');
-  showSuccess('💸', 'Refund issued', `Your deposit of ${formatPrice(result.txn.deposit)} has been returned to your balance. The seller's account has been removed. We're sorry for the trouble.`);
-  refreshBalance();
-  renderTransactions();
+  openComingSoon('Report & refund');
 }
 
 function cancelTxn(txnId) {
   if (!confirm('Cancel this transaction?')) return;
   const t = DB.getTransactionById(txnId);
-  if (t.status !== 'pending_deposit') { toast('Cannot cancel at this stage', 'warning'); return; }
+  if (t.status !== 'pending_payment') { toast('Cannot cancel at this stage', 'warning'); return; }
   // Just mark it as a local delete (soft delete)
   const txns = DB.getTransactions();
   const idx = txns.findIndex(tx => tx.id === txnId);

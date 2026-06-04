@@ -281,46 +281,9 @@ function renderSellerListings() {
 }
 
 function toggleBoost(id) {
-  const listing = DB.getListingById(id);
-  if (!listing) return;
-
-  // Turning a boost OFF is always free — no confirmation needed.
-  if (listing.boosted) {
-    const res = DB.disableBoost(id, currentUser.id);
-    if (res.error) { toast(res.error, 'error'); return; }
-    toast('Boost removed', 'info');
-    renderSellerListings();
-    return;
-  }
-
-  // Turning a boost ON: PRO members spend a free boost (if any),
-  // free users (and PRO members out of free boosts) get charged BOOST_FEE.
-  const user = DB.getUserById(currentUser.id);
-  const hasFreeBoost = (user.freeBoosts || 0) > 0;
-
-  const msg = hasFreeBoost
-    ? `Use 1 free boost? (${user.freeBoosts} remaining)`
-    : `Boost this listing for €${BOOST_FEE.toFixed(2)}?\n\nThis will be deducted from your balance (€${user.balance.toFixed(2)}).`;
-
-  if (!confirm(msg)) return;
-
-  const res = DB.enableBoost(id, currentUser.id);
-  if (res.error) {
-    if (res.error === 'Insufficient balance') {
-      toast(`Not enough balance — you need €${BOOST_FEE.toFixed(2)}`, 'error');
-    } else {
-      toast(res.error, 'error');
-    }
-    return;
-  }
-
-  currentUser = DB.getUserById(currentUser.id); // refresh
-  const successMsg = res.paidWith === 'free'
-    ? `Listing boosted! 🚀 (${currentUser.freeBoosts} free boosts left)`
-    : `Listing boosted! 🚀 -€${BOOST_FEE.toFixed(2)}`;
-  toast(successMsg, 'success');
-  buildNav(); // free-boost count in the dropdown may have changed
-  renderSellerListings();
+  // Boost is a paid feature and isn't live in the pilot. Route both enable and
+  // disable to the coming-soon modal so seeded "Boosted" badges stay in place.
+  openComingSoon('Listing Boost');
 }
 
 function deleteListing(id) {
