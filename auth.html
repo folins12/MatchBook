@@ -86,7 +86,7 @@
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Your school</label>
+          <label class="form-label">Your school <span style="color:var(--ink-4);font-weight:400;">(optional)</span></label>
           <select class="form-select" id="regSchool"></select>
           <div class="form-hint">This determines your listing priority on the platform.</div>
         </div>
@@ -129,7 +129,7 @@
     const schoolId = document.getElementById('regSchool').value;
     const errEl = document.getElementById('regError');
     errEl.textContent = '';
-    if (!name || !email || !password || !schoolId) {
+    if (!name || !email || !password) {
       errEl.textContent = 'Please fill in all fields.'; return;
     }
     if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }

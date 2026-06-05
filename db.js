@@ -260,9 +260,19 @@ const DB = {
 
   // ── Matching System ────────────────────────────────────────────────────────
   getMatchedListings(buyerSchoolId, sortBy = 'proximity') {
-    const buyerSchool = SCHOOLS_DB.find(s => s.id === buyerSchoolId);
-    if (!buyerSchool) return [];
+    const buyerSchool = SCHOOLS_DB.find(s => s.id === buyerSchoolId) || null;
     const listings = this.getListings().filter(l => l.status === 'active');
+
+    // Nessuna scuola sull'account → niente da "matchare", quindi mostra tutti i
+    // libri attivi (più recenti, o più economici se ordini per prezzo).
+    if (!buyerSchool) {
+      const all = listings.map(l => ({
+        ...l, _priority: 3, _distance: Number.MAX_SAFE_INTEGER,
+        _sellerSchool: SCHOOLS_DB.find(s => s.id === l.schoolId) || null,
+      }));
+      all.sort((a, b) => sortBy === 'price' ? a.price - b.price : b.createdAt - a.createdAt);
+      return all;
+    }
 
     const scored = listings.map(l => {
       const sellerSchool = SCHOOLS_DB.find(s => s.id === l.schoolId);
@@ -282,18 +292,20 @@ const DB = {
     return scored;
   },
   toggleOtherCities(buyerSchoolId, sortBy = 'proximity') {
-    const buyerSchool = SCHOOLS_DB.find(s => s.id === buyerSchoolId);
-    if (!buyerSchool) return [];
+    // Vista "altre scuole": mostra TUTTI i libri attivi a prescindere dalla scuola
+    // — inclusi i libri di venditori senza scuola, e per compratori senza scuola.
+    const buyerSchool = SCHOOLS_DB.find(s => s.id === buyerSchoolId) || null;
     const listings = this.getListings().filter(l => l.status === 'active');
     const scored = listings.map(l => {
-      const sellerSchool = SCHOOLS_DB.find(s => s.id === l.schoolId);
-      if (!sellerSchool) return null;
-      let priority = 3;
-      if (sellerSchool.id === buyerSchool.id) priority = 1;
-      else if (sellerSchool.city === buyerSchool.city) priority = 2;
-      const dist = haversine(buyerSchool.lat, buyerSchool.lng, sellerSchool.lat, sellerSchool.lng);
+      const sellerSchool = SCHOOLS_DB.find(s => s.id === l.schoolId) || null;
+      let priority = 3, dist = Number.MAX_SAFE_INTEGER;
+      if (buyerSchool && sellerSchool) {
+        if (sellerSchool.id === buyerSchool.id) priority = 1;
+        else if (sellerSchool.city === buyerSchool.city) priority = 2;
+        dist = haversine(buyerSchool.lat, buyerSchool.lng, sellerSchool.lat, sellerSchool.lng);
+      }
       return { ...l, _priority: priority, _distance: dist, _sellerSchool: sellerSchool };
-    }).filter(Boolean);
+    });
     if (sortBy === 'proximity') scored.sort((a, b) => a._priority - b._priority || a._distance - b._distance);
     else scored.sort((a, b) => a._priority - b._priority || a.price - b.price);
     return scored;
