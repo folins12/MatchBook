@@ -401,6 +401,21 @@ p { color: var(--ink-2); }
 .cs-q-btn.selected[data-val="no"]  { background: var(--red);   border-color: var(--red);   color: #fff; }
 
 .cs-done { text-align: center; padding: 8px 0 4px; }
+
+/* "What is PRO" card inside the survey */
+.cs-pro-note {
+  background: var(--gold-light); border: 1px solid var(--gold);
+  border-radius: var(--radius-sm); padding: 11px 13px;
+}
+.cs-pro-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: .9rem; font-weight: 700; color: var(--ink-2); margin-bottom: 4px;
+}
+.cs-pro-tag {
+  background: var(--gold); color: #fff; font-size: .68rem; font-weight: 800;
+  letter-spacing: .06em; padding: 2px 8px; border-radius: 100px;
+}
+.cs-pro-text { font-size: .8rem; line-height: 1.42; color: var(--ink-3); }
 .cs-done-icon {
   width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 50%;
   background: var(--accent); color: #fff; font-size: 1.7rem; font-weight: 700;

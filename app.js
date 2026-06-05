@@ -25,10 +25,10 @@
 //   4. Paste the four values below. Leave them as-is to keep email OFF (the
 //      answers still save locally, the popup still works — it just won't send).
 const EMAILJS = {
-  serviceId:  'service_kuhvf9e',    // ← EmailJS → Email Services
-  templateId: 'template_9w4dzym',   // ← EmailJS → Email Templates
-  publicKey:  'nwSR8D4wAzNEEMI0j',    // ← EmailJS → Account → General  (public, OK in client code)
-  toEmail:    'matchbook.business@gmail.com',    // ← RECEIVER: where the survey responses are delivered
+  serviceId:  'YOUR_SERVICE_ID',    // ← EmailJS → Email Services
+  templateId: 'YOUR_TEMPLATE_ID',   // ← EmailJS → Email Templates
+  publicKey:  'YOUR_PUBLIC_KEY',    // ← EmailJS → Account → General  (public, OK in client code)
+  toEmail:    'you@example.com',    // ← RECEIVER: where the survey responses are delivered
 };
 
 // Sends one survey response via the EmailJS REST API (no SDK needed).
@@ -274,7 +274,14 @@ function _csInjectModal() {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'comingSoonModal';
-  const questionsHtml = CS_QUESTIONS.map(q => `
+  // Short "what is PRO" card, shown right before the PRO question so people know
+  // what they're answering about without leaving the popup.
+  const proNote = `
+        <div class="cs-pro-note">
+          <div class="cs-pro-head"><span class="cs-pro-tag">PRO</span> &euro;5 / year</div>
+          <div class="cs-pro-text">Removes the &euro;1 buyer fee on every purchase for a whole year &mdash; already worth it from your 6th book &mdash; and gives sellers 5 free listing boosts.</div>
+        </div>`;
+  const questionsHtml = CS_QUESTIONS.map(q => `${q.key === 'upgradePro' ? proNote : ''}
         <div class="cs-q" data-q="${q.key}">
           <div class="cs-q-text">${q.text}</div>
           <div class="cs-q-opts" role="group" aria-label="${q.text}">

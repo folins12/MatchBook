@@ -56,7 +56,8 @@
     }
     .kpi {
       background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
-      padding: 22px 24px 24px; position: relative;
+      padding: 30px 28px 32px; position: relative;
+      min-height: 210px; display: flex; flex-direction: column;
     }
     .kpi-tag {
       font-family: var(--font-mono); font-size: .66rem; letter-spacing: .16em;
@@ -65,57 +66,13 @@
     }
     .kpi-num {
       font-family: var(--font-display); font-weight: 800; color: var(--accent);
-      font-size: 3.3rem; line-height: 1; letter-spacing: -.02em;
+      font-size: 4rem; line-height: 1; letter-spacing: -.02em;
     }
     .kpi-num span { font-size: 1.4rem; font-weight: 700; margin-left: 2px; }
     .kpi-label { font-family: var(--font-display); font-size: 1.28rem; margin: 12px 0 10px; color: var(--ink); }
     .kpi-label em { color: var(--gold); font-style: italic; }
-    .kpi-foot { font-size: .82rem; color: var(--ink-3); line-height: 1.45; }
+    .kpi-foot { font-size: .82rem; color: var(--ink-3); line-height: 1.45; margin-top: auto; padding-top: 14px; }
     .kpi-foot strong { color: var(--ink-2); font-weight: 700; }
-
-    /* Two-panel grid */
-    .panels { display: grid; grid-template-columns: 1.32fr 1fr; gap: 18px; }
-    .panel {
-      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
-      padding: 26px 28px 28px;
-    }
-    .panel-title {
-      font-family: var(--font-mono); font-size: .72rem; letter-spacing: .16em;
-      text-transform: uppercase; color: var(--gold); margin-bottom: 22px;
-    }
-
-    /* Funnel */
-    .funnel-row {
-      display: grid; grid-template-columns: 116px 1fr 34px 50px; align-items: center;
-      gap: 14px; margin-bottom: 14px;
-    }
-    .funnel-row:last-child { margin-bottom: 0; }
-    .funnel-name { font-size: .9rem; color: var(--ink-2); }
-    .funnel-track {
-      height: 26px; background: var(--accent-light); border-radius: var(--radius-sm); overflow: hidden;
-    }
-    .funnel-bar {
-      height: 100%; border-radius: var(--radius-sm);
-      background: linear-gradient(90deg, var(--accent), #2f9d76);
-      width: 0; transition: width .7s cubic-bezier(.4,0,.2,1);
-    }
-    .funnel-count { font-family: var(--font-body); font-weight: 700; font-size: .95rem; color: var(--ink); text-align: right; }
-    .funnel-pct {
-      font-family: var(--font-mono); font-size: .74rem; font-weight: 500; color: var(--gold);
-      background: var(--gold-light); border-radius: 100px; padding: 4px 0; text-align: center;
-    }
-    .funnel-pct.none { background: var(--bg-alt); color: var(--ink-4); }
-
-    /* Engagement */
-    .eng-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 26px 28px; }
-    .eng-tile { border-bottom: 1px solid var(--border); padding-bottom: 14px; }
-    .eng-tile:nth-last-child(-n+2) { border-bottom: none; padding-bottom: 0; }
-    .eng-label {
-      font-family: var(--font-mono); font-size: .66rem; letter-spacing: .13em;
-      text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px;
-    }
-    .eng-num { font-family: var(--font-display); font-weight: 800; font-size: 1.9rem; color: var(--ink); line-height: 1; }
-    .eng-num small { font-family: var(--font-mono); font-size: .8rem; font-weight: 400; color: var(--ink-3); margin-left: 5px; }
 
     /* Footer */
     .dash-foot {
@@ -125,12 +82,10 @@
 
     @media (max-width: 980px) {
       .kpi-row { grid-template-columns: repeat(2, 1fr); }
-      .panels { grid-template-columns: 1fr; }
     }
     @media (max-width: 560px) {
       .dash { padding: 28px 18px 40px; }
       .kpi-row { grid-template-columns: 1fr; }
-      .funnel-row { grid-template-columns: 92px 1fr 30px 46px; gap: 10px; }
       .dash-head { flex-direction: column; }
     }
   </style>
@@ -147,11 +102,8 @@
       <div class="dash-kicker">Metrics<br>Dashboard</div>
     </div>
     <div class="dash-tools">
-      <div class="mock-pill">Preview · Mock data</div>
-      <div class="tf-group" id="tfGroup">
-        <button class="tf-btn active" data-win="d7" onclick="setWindow('d7')">Last 7 days</button>
-        <button class="tf-btn" data-win="d30" onclick="setWindow('d30')">1 month</button>
-        <button class="tf-btn" data-win="all" onclick="setWindow('all')">Always</button>
+      <div class="tf-group">
+        <span class="tf-btn active">All responses</span>
       </div>
     </div>
   </header>
@@ -165,18 +117,6 @@
   <!-- KPI cards -->
   <section class="kpi-row" id="kpiRow"></section>
 
-  <!-- Funnel + Engagement -->
-  <section class="panels">
-    <div class="panel">
-      <div class="panel-title" id="funnelTitle">The Funnel</div>
-      <div id="funnelRows"></div>
-    </div>
-    <div class="panel">
-      <div class="panel-title">Engagement Signals</div>
-      <div class="eng-grid" id="engGrid"></div>
-    </div>
-  </section>
-
   <!-- Footer -->
   <footer class="dash-foot">matchbook.it/metrics</footer>
 
@@ -186,97 +126,33 @@
 <script src="app.js"></script>
 <script>
   let METRICS = null;
-  let CURRENT_WIN = 'd7';
+  const TOTAL_VISITORS = 5;
 
-  const FUNNEL_ROWS = [
-    { key: 'visitors',       name: 'Site visitors'  },
-    { key: 'signupStarted',  name: 'Signup started' },
-    { key: 'schoolLinked',   name: 'School linked'  },
-    { key: 'postedBook',     name: 'Posted a book'  },
-    { key: 'clickedReserve', name: 'Clicked Buy'  },
-    { key: 'paidDeposit',    name: 'Paid'         },
-  ];
-
-  const KPI_CARDS = [
-    { tag: '① Metric', head: 'Activation', tail: 'Rate',       kpi: 'activation',
-      foot: (f) => `${f.schoolLinked} of ${f.signupStarted} signed up <strong>with a school</strong>` },
-    { tag: '② Metric', head: 'Listing',    tail: 'Rate',       kpi: 'listing',
-      foot: (f) => `${f.postedBook} users posted <strong>at least one book</strong>` },
-    { tag: '③ Metric', head: 'Purchase',   tail: 'Conversion', kpi: 'escrow',
-      foot: (f) => `${f.paidDeposit} of ${f.clickedReserve} completed <strong>the purchase</strong>` },
-    { tag: '④ Metric', head: 'Monetization', tail: 'Interest', kpi: 'monetization',
-      foot: (f, w) => `${w.monetizers} sellers tapped <strong>Boost or Pro</strong>` },
-  ];
-
-  const ENG_TILES = [
-    { key: 'reserveClicks',    label: 'Buy clicks'          },
-    { key: 'boostOpened',      label: 'Boost opened'        },
-    { key: 'proCtaTapped',     label: 'Pro CTA tapped'      },
-    { key: 'avgTimeToListing', label: 'Avg time to listing', suffix: 'min' },
-    { key: 'repeatSessions',   label: 'Repeat sessions'     },
-    { key: 'activeSellers',    label: 'Active sellers'      },
+  // The four survey results collected from the pilot's first visitors
+  // (each value = how many of TOTAL_VISITORS answered "yes").
+  const SURVEY = [
+    { tag: '① Survey', yes: 5, head: 'Linked',     tail: 'their school', q: 'would link their school' },
+    { tag: '② Survey', yes: 4, head: 'Willing',    tail: 'to buy',       q: 'would buy a book' },
+    { tag: '③ Survey', yes: 2, head: 'Willing',    tail: 'to sell',      q: 'would sell a book' },
+    { tag: '④ Survey', yes: 1, head: 'Interested', tail: 'in PRO',       q: 'would consider PRO' },
   ];
 
   function render() {
-    const w = METRICS.windows[CURRENT_WIN];
-    const f = w.funnel;
-    const fp = w.funnelPct;
-
-    // Hero
-    const others = Math.max(0, w.signups - 1);
     document.getElementById('heroLine').innerHTML =
-      `What Giulia and ${others} others <em>actually did</em>.`;
+      `What our first ${TOTAL_VISITORS} visitors <em>told us</em>.`;
     document.getElementById('heroSub').textContent =
-      `Real behavioral signals from our ${METRICS.school} deployment.`;
+      `Survey responses from the MatchBook pilot.`;
 
-    // KPI cards
-    document.getElementById('kpiRow').innerHTML = KPI_CARDS.map(c => `
+    document.getElementById('kpiRow').innerHTML = SURVEY.map(c => {
+      const pct = Math.round((c.yes / TOTAL_VISITORS) * 100);
+      return `
       <div class="kpi">
         <div class="kpi-tag">${c.tag}</div>
-        <div class="kpi-num">${w.kpi[c.kpi]}<span>%</span></div>
+        <div class="kpi-num">${c.yes}<span>/ ${TOTAL_VISITORS}</span></div>
         <div class="kpi-label"><em>${c.head}</em> ${c.tail}</div>
-        <div class="kpi-foot">${c.foot(f, w)}</div>
-      </div>`).join('');
-
-    // Funnel
-    document.getElementById('funnelTitle').textContent = `The Funnel · ${w.label}`;
-    const maxV = f.visitors || 1;
-    document.getElementById('funnelRows').innerHTML = FUNNEL_ROWS.map(r => {
-      const val = f[r.key];
-      const widthPct = Math.max(4, Math.round((val / maxV) * 100));
-      const isVisitors = r.key === 'visitors';
-      const pill = isVisitors
-        ? `<div class="funnel-pct none">—</div>`
-        : `<div class="funnel-pct">${fp[r.key]}%</div>`;
-      return `
-        <div class="funnel-row">
-          <div class="funnel-name">${r.name}</div>
-          <div class="funnel-track"><div class="funnel-bar" data-w="${widthPct}"></div></div>
-          <div class="funnel-count">${val}</div>
-          ${pill}
-        </div>`;
+        <div class="kpi-foot"><strong>${pct}%</strong> of visitors ${c.q}</div>
+      </div>`;
     }).join('');
-    // animate bars in
-    requestAnimationFrame(() => {
-      document.querySelectorAll('.funnel-bar').forEach(b => { b.style.width = b.dataset.w + '%'; });
-    });
-
-    // Engagement
-    document.getElementById('engGrid').innerHTML = ENG_TILES.map(t => {
-      const v = w.engagement[t.key];
-      const suffix = t.suffix ? ` <small>${t.suffix}</small>` : '';
-      return `
-        <div class="eng-tile">
-          <div class="eng-label">${t.label}</div>
-          <div class="eng-num">${v}${suffix}</div>
-        </div>`;
-    }).join('');
-  }
-
-  function setWindow(win) {
-    CURRENT_WIN = win;
-    document.querySelectorAll('.tf-btn').forEach(b => b.classList.toggle('active', b.dataset.win === win));
-    render();
   }
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -289,10 +165,7 @@
       return;
     }
     METRICS = DB.getMetrics();
-    if (!METRICS) { toast('No metrics available', 'error'); return; }
     document.getElementById('dashRoot').style.display = '';
     render();
   });
 </script>
-</body>
-</html>
