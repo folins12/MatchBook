@@ -141,7 +141,7 @@
     document.getElementById('heroLine').innerHTML =
       `What our first ${TOTAL_VISITORS} visitors <em>told us</em>.`;
     document.getElementById('heroSub').textContent =
-      `Survey responses from the MatchBook pilot.`;
+      `Survey responses from the MatchBook pilot at Liceo Scientifico "Paolo Ruffini".`;
 
     document.getElementById('kpiRow').innerHTML = SURVEY.map(c => {
       const pct = Math.round((c.yes / TOTAL_VISITORS) * 100);
