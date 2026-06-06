@@ -25,10 +25,10 @@
 //   4. Paste the four values below. Leave them as-is to keep email OFF (the
 //      answers still save locally, the popup still works — it just won't send).
 const EMAILJS = {
-  serviceId:  'YOUR_SERVICE_ID',    // ← EmailJS → Email Services
-  templateId: 'YOUR_TEMPLATE_ID',   // ← EmailJS → Email Templates
-  publicKey:  'YOUR_PUBLIC_KEY',    // ← EmailJS → Account → General  (public, OK in client code)
-  toEmail:    'you@example.com',    // ← RECEIVER: where the survey responses are delivered
+  serviceId:  'service_kuhvf9e',    // ← EmailJS → Email Services
+  templateId: 'template_9w4dzym',   // ← EmailJS → Email Templates
+  publicKey:  'nwSR8D4wAzNEEMI0j',    // ← EmailJS → Account → General  (public, OK in client code)
+  toEmail:    'matchbook.business@gmail.com',    // ← RECEIVER: where the survey responses are delivered
 };
 
 // Sends one survey response via the EmailJS REST API (no SDK needed).
