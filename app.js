@@ -55,6 +55,7 @@ async function sendWaitlistEmail(record) {
       link_school: a.linkSchool,
       sell_book: a.sellBook,
       buy_book: a.buyBook,
+      buy_boost: a.buyBoost,
       upgrade_pro: a.upgradePro,
       submitted_at: new Date(record.ts).toLocaleString('en-GB'),
     },
@@ -266,6 +267,7 @@ const CS_QUESTIONS = [
   { key: 'linkSchool', text: 'Would you link your school to your account?' },
   { key: 'sellBook',   text: 'Would you sell a book on our platform?' },
   { key: 'buyBook',    text: 'Would you buy a book on our platform?' },
+  { key: 'buyBoost',   text: 'Would you pay &euro;1.50 to boost a book to the top?' },
   { key: 'upgradePro', text: 'Would you consider upgrading to MatchBook PRO?' },
 ];
 
@@ -295,7 +297,7 @@ function _csInjectModal() {
       <div class="cs-body" id="csFormView">
         <span class="cs-badge">Coming soon</span>
         <h2 class="cs-title" id="csTitle">This feature is coming.</h2>
-        <p class="cs-sub" id="csSub">Secure online payments aren't live yet in this pilot. Leave your email and answer four quick questions — it helps us build the right thing, and we'll let you know the moment it's ready.</p>
+        <p class="cs-sub" id="csSub">Secure online payments aren't live yet in this pilot. Leave your email and answer five quick questions — it helps us build the right thing, and we'll let you know the moment it's ready.</p>
         <div class="cs-form">
           <input type="email" id="csEmail" class="form-input cs-input" placeholder="name@school.it" autocomplete="email" />
           <div class="cs-questions">
@@ -386,7 +388,7 @@ function submitComingSoon() {
   }
   email?.classList.remove('error');
   if (unanswered > 0) {
-    if (err) { err.textContent = 'Please answer all four questions.'; err.style.display = 'block'; }
+    if (err) { err.textContent = 'Please answer all five questions.'; err.style.display = 'block'; }
     return;
   }
   if (err) err.style.display = 'none';
