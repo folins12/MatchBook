@@ -50,29 +50,70 @@
     .dash-hero h1 em { color: var(--accent); font-style: italic; }
     .dash-sub { color: var(--ink-3); font-size: 1.02rem; margin-top: 12px; font-style: italic; }
 
-    /* KPI cards */
+    /* KPI cards — one per AARRR stage */
     .kpi-row {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 22px;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 18px;
     }
     .kpi {
       background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
-      padding: 30px 28px 32px; position: relative;
-      min-height: 210px; display: flex; flex-direction: column;
+      padding: 26px 26px 28px; position: relative;
+      min-height: 280px; display: flex; flex-direction: column;
     }
+    /* stage tag: emerald roman numeral + gold stage name */
     .kpi-tag {
       font-family: var(--font-mono); font-size: .66rem; letter-spacing: .16em;
-      text-transform: uppercase; color: var(--gold);
-      display: flex; align-items: center; gap: 7px; margin-bottom: 10px;
+      text-transform: uppercase; display: flex; align-items: center; gap: 9px; margin-bottom: 18px;
     }
+    .kpi-tag-roman {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px; padding: 0 6px; border-radius: 6px;
+      background: var(--accent-light); color: var(--accent); font-weight: 700; font-size: .72rem;
+    }
+    .kpi-tag-name { color: var(--gold); }
+    /* KEY metric — the hero of each card */
+    .kpi-key { display: flex; align-items: baseline; gap: 12px; }
     .kpi-num {
       font-family: var(--font-display); font-weight: 800; color: var(--accent);
-      font-size: 4rem; line-height: 1; letter-spacing: -.02em;
+      font-size: 3.7rem; line-height: .9; letter-spacing: -.02em;
     }
-    .kpi-num span { font-size: 1.4rem; font-weight: 700; margin-left: 2px; }
-    .kpi-label { font-family: var(--font-display); font-size: 1.28rem; margin: 12px 0 10px; color: var(--ink); }
-    .kpi-label em { color: var(--gold); font-style: italic; }
-    .kpi-foot { font-size: .82rem; color: var(--ink-3); line-height: 1.45; margin-top: auto; padding-top: 14px; }
-    .kpi-foot strong { color: var(--ink-2); font-weight: 700; }
+    .kpi-num span { font-size: 1.3rem; font-weight: 700; color: var(--ink-3); margin-left: 1px; }
+    .kpi-pct {
+      align-self: center; font-family: var(--font-mono); font-size: .82rem; font-weight: 600;
+      color: var(--accent); background: var(--accent-light); padding: 4px 10px; border-radius: 100px;
+    }
+    .kpi-pct.zero { color: var(--ink-3); background: var(--bg-alt); }
+    .kpi-base {
+      align-self: center; font-family: var(--font-mono); font-size: .64rem; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--gold); background: var(--gold-light);
+      padding: 5px 10px; border-radius: 100px;
+    }
+    .kpi-label { font-family: var(--font-display); font-size: 1.2rem; margin: 12px 0 0; color: var(--ink); line-height: 1.25; }
+    .kpi-key-bar { height: 6px; border-radius: 100px; background: var(--bg-alt); overflow: hidden; margin-top: 14px; }
+    .kpi-key-bar-fill { height: 100%; border-radius: 100px; background: var(--accent); }
+    /* explanatory note (cards with no sub-metrics) */
+    .kpi-note { font-size: .82rem; color: var(--ink-3); line-height: 1.5; margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--border); }
+    /* SECONDARY signals (sub-metrics) — visually demoted, gold accents */
+    .kpi-subs { margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--border); }
+    .kpi-subs-title {
+      font-family: var(--font-mono); font-size: .6rem; letter-spacing: .16em; text-transform: uppercase;
+      color: var(--ink-4); margin-bottom: 13px;
+    }
+    .kpi-sub + .kpi-sub { margin-top: 13px; }
+    .kpi-sub-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    .kpi-sub-name { font-size: .87rem; color: var(--ink-2); font-weight: 500; }
+    .kpi-sub-val { font-family: var(--font-mono); font-size: .76rem; color: var(--ink-3); white-space: nowrap; }
+    .kpi-sub-val strong { color: var(--ink); font-weight: 700; }
+    .kpi-sub-bar { height: 5px; border-radius: 100px; background: var(--bg-alt); overflow: hidden; }
+    .kpi-sub-bar-fill { height: 100%; border-radius: 100px; background: var(--gold); }
+    .kpi-sub-foot { font-size: .72rem; color: var(--ink-4); margin-top: 6px; font-style: italic; }
+
+    /* Retention exclusion note */
+    .dash-note {
+      font-size: .86rem; color: var(--ink-3); line-height: 1.55;
+      background: var(--bg-card); border: 1px dashed var(--border);
+      border-radius: var(--radius); padding: 14px 18px; margin-bottom: 8px;
+    }
+    .dash-note strong { color: var(--accent); font-weight: 700; }
 
     /* Footer */
     .dash-foot {
@@ -103,7 +144,7 @@
     </div>
     <div class="dash-tools">
       <div class="tf-group">
-        <span class="tf-btn active">All responses</span>
+        <span class="tf-btn active">All Responses</span>
       </div>
     </div>
   </header>
@@ -117,6 +158,9 @@
   <!-- KPI cards -->
   <section class="kpi-row" id="kpiRow"></section>
 
+  <!-- Why only four stages -->
+  <p class="dash-note"><strong>Retention</strong> — the one AARRR stage we leave out — isn't measurable here: a textbook is bought once per school year, so there's no repeat-usage to track inside the pilot window.</p>
+
   <!-- Footer -->
   <footer class="dash-foot">matchbook.it/metrics</footer>
 
@@ -126,33 +170,85 @@
 <script src="app.js"></script>
 <script>
   let METRICS = null;
-  const TOTAL_VISITORS = 5;
 
-  // The four survey results collected from the pilot's first visitors
-  // (each value = how many of TOTAL_VISITORS answered "yes").
-  const SURVEY = [
-    { tag: '① Survey', yes: 5, head: 'Linked',     tail: 'their school', q: 'would link their school' },
-    { tag: '② Survey', yes: 4, head: 'Willing',    tail: 'to buy',       q: 'would buy a book' },
-    { tag: '③ Survey', yes: 2, head: 'Willing',    tail: 'to sell',      q: 'would sell a book' },
-    { tag: '④ Survey', yes: 1, head: 'Interested', tail: 'in PRO',       q: 'would consider PRO' },
+  // Pilot cohort size — the denominator behind every rate on this board.
+  const N = 5;
+
+  // The funnel, in AARRR order. Each card = one stage with a single KEY metric;
+  // `subs` are secondary signals shown (demoted) inside the same card. Numbers are
+  // the manually-entered pilot results (how many of N visitors qualified).
+  const FUNNEL = [
+    {
+      roman: 'I', stage: 'Acquisition',
+      key: { value: 5, base: true, label: 'Total site visitors' },
+      note: '',
+    },
+    {
+      roman: 'II', stage: 'Activation',
+      key: { value: 5, label: 'Registered &amp; school linked' },
+      subs: [
+        { name: 'Willing to sell', value: 2, foot: 'Supply signal.' },
+      ],
+    },
+    {
+      roman: 'III', stage: 'Revenue',
+      key: { value: 4, label: 'Willing to buy' },
+      subs: [
+        { name: 'Willing to boost', value: 1, foot: '€1.50 micro-transaction intent.' },
+        { name: 'Willing to go PRO', value: 1, foot: '€5 / year subscription intent.' },
+      ],
+    },
+    {
+      roman: 'IV', stage: 'Referral',
+      key: { value: 0, label: 'Clicked “Share”' },
+      note: '',
+    },
   ];
+
+  const pct = (v) => Math.round((v / N) * 100);
+
+  function card(c) {
+    const k = c.key;
+    const num = k.base ? `${k.value}` : `${k.value}<span>/ ${N}</span>`;
+    const badge = k.base
+      ? `<span class="kpi-base">Funnel base</span>`
+      : `<span class="kpi-pct${k.value === 0 ? ' zero' : ''}">${pct(k.value)}%</span>`;
+    const fill = k.base ? 100 : pct(k.value);
+
+    const bottom = (c.subs && c.subs.length)
+      ? `<div class="kpi-subs">
+           <div class="kpi-subs-title">Secondary signals</div>
+           ${c.subs.map(s => `
+           <div class="kpi-sub">
+             <div class="kpi-sub-top">
+               <span class="kpi-sub-name">${s.name}</span>
+               <span class="kpi-sub-val"><strong>${s.value}</strong> / ${N} · ${pct(s.value)}%</span>
+             </div>
+             <div class="kpi-sub-bar"><div class="kpi-sub-bar-fill" style="width:${pct(s.value)}%"></div></div>
+             ${s.foot ? `<div class="kpi-sub-foot">${s.foot}</div>` : ''}
+           </div>`).join('')}
+         </div>`
+      : `<div class="kpi-note">${c.note || ''}</div>`;
+
+    return `
+      <div class="kpi">
+        <div class="kpi-tag"><span class="kpi-tag-roman">${c.roman}</span><span class="kpi-tag-name">${c.stage}</span></div>
+        <div class="kpi-key">
+          <div class="kpi-num">${num}</div>
+          ${badge}
+        </div>
+        <div class="kpi-label">${k.label}</div>
+        <div class="kpi-key-bar"><div class="kpi-key-bar-fill" style="width:${fill}%"></div></div>
+        ${bottom}
+      </div>`;
+  }
 
   function render() {
     document.getElementById('heroLine').innerHTML =
-      `What our first ${TOTAL_VISITORS} visitors <em>told us</em>.`;
+      `What our first 5 visitors <em>told us</em>.`;
     document.getElementById('heroSub').textContent =
-      `Survey responses from the MatchBook pilot at Liceo Scientifico "Paolo Ruffini".`;
-
-    document.getElementById('kpiRow').innerHTML = SURVEY.map(c => {
-      const pct = Math.round((c.yes / TOTAL_VISITORS) * 100);
-      return `
-      <div class="kpi">
-        <div class="kpi-tag">${c.tag}</div>
-        <div class="kpi-num">${c.yes}<span>/ ${TOTAL_VISITORS}</span></div>
-        <div class="kpi-label"><em>${c.head}</em> ${c.tail}</div>
-        <div class="kpi-foot"><strong>${pct}%</strong> of visitors ${c.q}</div>
-      </div>`;
-    }).join('');
+      `Survey responses from MatchBook's first ${N} visitors at Liceo Scientifico "Paolo Ruffini".`;
+    document.getElementById('kpiRow').innerHTML = FUNNEL.map(card).join('');
   }
 
   document.addEventListener('DOMContentLoaded', () => {

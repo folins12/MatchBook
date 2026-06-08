@@ -6,7 +6,7 @@
 // ╔══════════════════════════════════════════════════════════════════════════╗
 // ║  EMAIL CONFIG  ·  PASTE YOUR EMAILJS VALUES HERE                           ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
-// The survey popup (email + 4 Yes/No answers) is sent here via EmailJS, a free
+// The survey popup (email + 5 Yes/No answers) is sent here via EmailJS, a free
 // email API that works from a static site — no backend / no GitHub Pages server.
 //
 // HOW TO FILL THIS IN (one-time setup at https://www.emailjs.com — free plan):
@@ -19,8 +19,8 @@
 //   2. "Create an Email Template". In the template's "To Email" field put
 //      {{to_email}} so the RECEIVER is taken from `toEmail` below. Copy the
 //      Template ID. (Template variables you can use: {{respondent_email}},
-//      {{link_school}}, {{sell_book}}, {{buy_book}}, {{upgrade_pro}},
-//      {{trigger_feature}}, {{submitted_at}}.)
+//      {{link_school}}, {{sell_book}}, {{buy_book}}, {{buy_boost}},
+//      {{upgrade_pro}}, {{trigger_feature}}, {{submitted_at}}.)
 //   3. Account → General: copy your Public Key (safe to expose on the client).
 //   4. Paste the four values below. Leave them as-is to keep email OFF (the
 //      answers still save locally, the popup still works — it just won't send).
@@ -136,6 +136,10 @@ function buildNav() {
               <button class="dropdown-btn" onclick="logout()">Sign out</button>
             </div>
           </div>
+          <button class="btn btn-primary btn-sm nav-share" onclick="openShare()" aria-label="Invite a friend">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Share
+          </button>
         ` : `
           <a href="auth.html" class="btn btn-sm btn-primary">Sign in</a>
         `}
@@ -259,10 +263,10 @@ function buildSchoolSelect(selectEl) {
 // ─── COMING SOON (interest + quick survey) ──────────────────────────────────────
 // Shared, brand-styled modal used by every monetary CTA across the app. Payments
 // aren't built yet for the pilot, so instead of running the (fake) money flow we
-// collect an email plus a short 4-question intent survey. Responses are stored
+// collect an email plus a short 5-question intent survey. Responses are stored
 // locally under mb_waitlist. (Step 3 will POST these to an email endpoint.)
 
-// The four intent questions shown in the modal. `key` is what gets stored.
+// The five intent questions shown in the modal. `key` is what gets stored.
 const CS_QUESTIONS = [
   { key: 'linkSchool', text: 'Would you link your school to your account?' },
   { key: 'sellBook',   text: 'Would you sell a book on our platform?' },
@@ -408,6 +412,90 @@ function submitComingSoon() {
   // swap to the thank-you view
   const form = document.getElementById('csFormView');
   const done = document.getElementById('csDoneView');
+  if (form) form.style.display = 'none';
+  if (done) done.style.display = '';
+}
+
+// ─── SHARE / REFERRAL (invite a friend) ──────────────────────────────────────
+// Lightweight invite modal triggered by the navbar "Share" button. This is a
+// UI-only referral CTA for the pilot: we validate the email and make sure it's
+// not already a MatchBook user, then show a thank-you. Nothing is sent or stored
+// — the Metrics Dashboard intentionally reports 0 referrals for this cohort.
+
+function _shareInjectModal() {
+  if (document.getElementById('shareModal')) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'shareModal';
+  overlay.innerHTML = `
+    <div class="modal coming-soon-modal" role="dialog" aria-modal="true" aria-labelledby="shareTitle">
+      <button class="modal-close" data-close-modal="shareModal" aria-label="Close">&times;</button>
+      <div class="cs-body" id="shareFormView">
+        <span class="cs-badge">Invite</span>
+        <h2 class="cs-title" id="shareTitle">Invite a friend</h2>
+        <p class="cs-sub">Bring a classmate to MatchBook and we'll gift you a <span>free boost</span> the moment the app launches. Just drop their email below.</p>
+        <div class="cs-form">
+          <input type="email" id="shareEmail" class="form-input cs-input" placeholder="friend@school.it" autocomplete="off" />
+          <div class="form-error" id="shareError" style="display:none;"></div>
+          <button class="btn btn-primary btn-full cs-submit" onclick="submitShare()">Send invite</button>
+        </div>
+        <p class="cs-fine">We'll only use this to send your friend a single invitation.</p>
+      </div>
+      <div class="cs-done" id="shareDoneView" style="display:none;">
+        <div class="cs-done-icon">✓</div>
+        <h2 class="cs-done-title">Invite ready!</h2>
+        <p class="cs-sub">Your friend is on the list and your free boost is reserved for launch day. Thanks for spreading the word.</p>
+        <button class="btn btn-secondary btn-full" data-close-modal="shareModal">Close</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  // Submit on Enter inside the email field
+  overlay.querySelector('#shareEmail')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); submitShare(); }
+  });
+}
+
+function openShare() {
+  _shareInjectModal();
+  const form = document.getElementById('shareFormView');
+  const done = document.getElementById('shareDoneView');
+  const err = document.getElementById('shareError');
+  const email = document.getElementById('shareEmail');
+  if (form) form.style.display = '';
+  if (done) done.style.display = 'none';
+  if (err) { err.style.display = 'none'; err.textContent = ''; }
+  if (email) { email.value = ''; email.classList.remove('error'); }
+  openModal('shareModal');
+  setTimeout(() => email?.focus(), 120);
+}
+
+function submitShare() {
+  const email = document.getElementById('shareEmail');
+  const err = document.getElementById('shareError');
+  const val = (email?.value || '').trim();
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+
+  // 1) Valid email format.
+  if (!validEmail) {
+    if (err) { err.textContent = 'Please enter a valid email address.'; err.style.display = 'block'; }
+    email?.classList.add('error');
+    email?.focus();
+    return;
+  }
+  // 2) Must not already exist in the local DB (can't "invite" an existing user).
+  if (DB.getUserByEmail(val)) {
+    if (err) { err.textContent = 'That email already belongs to a MatchBook account.'; err.style.display = 'block'; }
+    email?.classList.add('error');
+    email?.focus();
+    return;
+  }
+  email?.classList.remove('error');
+  if (err) err.style.display = 'none';
+
+  // UI-only: no email is sent and nothing is persisted — by design the pilot
+  // reports zero referrals on the dashboard.
+  const form = document.getElementById('shareFormView');
+  const done = document.getElementById('shareDoneView');
   if (form) form.style.display = 'none';
   if (done) done.style.display = '';
 }
